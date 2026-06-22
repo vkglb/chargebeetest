@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: chargeebee_postgres
+    environment:
+      POSTGRES_USER: chargeebee
+      POSTGRES_PASSWORD: chargeebee
+      POSTGRES_DB: chargeebee
+    ports:
+      - "5432:5432"
+    volumes:
+      - chargeebee_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chargeebee"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  chargeebee_pgdata:

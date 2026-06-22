@@ -1,0 +1,24 @@
+package server
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+func pgText(s string) pgtype.Text {
+	if s == "" {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: s, Valid: true}
+}
+
+func pgUUID(id uuid.UUID) pgtype.UUID {
+	if id == uuid.Nil {
+		return pgtype.UUID{Valid: false}
+	}
+	return pgtype.UUID{Bytes: id, Valid: true}
+}
+
+func timePtr(t time.Time) *time.Time { return &t }
