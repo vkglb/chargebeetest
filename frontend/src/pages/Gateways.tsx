@@ -2,13 +2,37 @@ import { useEffect, useState } from "react";
 import { api, type GatewayAccount } from "../api/client";
 import { formatDate } from "../lib/format";
 
-// The catalogue of gateways the platform can integrate. Only Stripe is wired in
-// v1; the rest are shown as "coming soon" to signal the multi-gateway roadmap.
+// The catalogue of gateways the platform can integrate. All are connectable;
+// each has a real backend implementation behind the PaymentGateway interface.
 const CATALOG = [
-  { provider: "stripe", name: "Stripe", blurb: "Cards, wallets, SCA, Connect", available: true },
-  { provider: "razorpay", name: "Razorpay", blurb: "India — UPI, cards, netbanking", available: false },
-  { provider: "braintree", name: "Braintree", blurb: "PayPal-owned, global cards", available: false },
-  { provider: "paypal", name: "PayPal", blurb: "PayPal balance & cards", available: false },
+  {
+    provider: "stripe",
+    name: "Stripe",
+    blurb: "Cards, wallets, SCA, Connect",
+    refLabel: "Account ref (acct_…)",
+    secretLabel: "Secret key (sk_live_…)",
+  },
+  {
+    provider: "razorpay",
+    name: "Razorpay",
+    blurb: "India — UPI, cards, netbanking",
+    refLabel: "Account ref (optional)",
+    secretLabel: "key_id:key_secret",
+  },
+  {
+    provider: "braintree",
+    name: "Braintree",
+    blurb: "PayPal-owned, global cards",
+    refLabel: "Merchant ID (optional)",
+    secretLabel: "public_key:private_key",
+  },
+  {
+    provider: "paypal",
+    name: "PayPal",
+    blurb: "PayPal balance & cards",
+    refLabel: "Account ref (optional)",
+    secretLabel: "client_id:secret",
+  },
 ];
 
 export default function Gateways() {
@@ -28,6 +52,12 @@ export default function Gateways() {
   }, []);
 
   const connected = (provider: string) => accounts.find((a) => a.provider === provider);
+
+  function openForm(provider: string) {
+    setAccountRef("");
+    setSecretKey("");
+    setConnecting(provider);
+  }
 
   async function connect(provider: string) {
     setError("");
@@ -77,40 +107,41 @@ export default function Gateways() {
                     {acct.account_ref || "—"}
                   </div>
                   <div className="mono">since {formatDate(acct.created_at)}</div>
-                </div>
-              ) : g.available ? (
-                connecting === g.provider ? (
-                  <div className="gateway-form">
-                    <label>Account ref (optional)</label>
-                    <input
-                      value={accountRef}
-                      onChange={(e) => setAccountRef(e.target.value)}
-                      placeholder="acct_..."
-                    />
-                    <label>Secret key</label>
-                    <input
-                      type="password"
-                      value={secretKey}
-                      onChange={(e) => setSecretKey(e.target.value)}
-                      placeholder="sk_live_..."
-                    />
-                    <div className="row" style={{ marginTop: 10 }}>
-                      <button className="btn btn-sm" onClick={() => connect(g.provider)}>
-                        Save & connect
-                      </button>
-                      <button className="btn-ghost" onClick={() => setConnecting(null)}>
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button className="btn btn-sm" onClick={() => setConnecting(g.provider)}>
-                    Connect {g.name}
+                  <button
+                    className="btn-ghost"
+                    style={{ marginTop: 10 }}
+                    onClick={() => openForm(g.provider)}
+                  >
+                    Update keys
                   </button>
-                )
+                </div>
+              ) : connecting === g.provider ? (
+                <div className="gateway-form">
+                  <label>{g.refLabel}</label>
+                  <input
+                    value={accountRef}
+                    onChange={(e) => setAccountRef(e.target.value)}
+                    placeholder={g.refLabel}
+                  />
+                  <label>{g.secretLabel}</label>
+                  <input
+                    type="password"
+                    value={secretKey}
+                    onChange={(e) => setSecretKey(e.target.value)}
+                    placeholder={g.secretLabel}
+                  />
+                  <div className="row" style={{ marginTop: 10 }}>
+                    <button className="btn btn-sm" onClick={() => connect(g.provider)}>
+                      Save & connect
+                    </button>
+                    <button className="btn-ghost" onClick={() => setConnecting(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <button className="btn-ghost" disabled>
-                  Coming soon
+                <button className="btn btn-sm" onClick={() => openForm(g.provider)}>
+                  Connect {g.name}
                 </button>
               )}
             </div>

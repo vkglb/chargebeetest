@@ -22,3 +22,11 @@ func pgUUID(id uuid.UUID) pgtype.UUID {
 }
 
 func timePtr(t time.Time) *time.Time { return &t }
+
+func pgInt4(n int32, valid bool) pgtype.Int4 {
+	return pgtype.Int4{Int32: n, Valid: valid}
+}
+
+func pgTimestamptz(t time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: t, Valid: true}
+}

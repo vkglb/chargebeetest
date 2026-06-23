@@ -17,21 +17,25 @@ import (
 
 // Server holds shared dependencies for HTTP handlers.
 type Server struct {
-	pool   *pgxpool.Pool
-	q      *sqlc.Queries
-	tokens *auth.TokenManager
-	logger *slog.Logger
-	router chi.Router
+	pool            *pgxpool.Pool
+	q               *sqlc.Queries
+	tokens          *auth.TokenManager
+	logger          *slog.Logger
+	checkoutBaseURL string
+	corsOrigins     string
+	router          chi.Router
 }
 
 // New constructs a Server and registers all routes.
-func New(pool *pgxpool.Pool, tokens *auth.TokenManager, logger *slog.Logger) *Server {
+func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, logger *slog.Logger) *Server {
 	s := &Server{
-		pool:   pool,
-		q:      sqlc.New(pool),
-		tokens: tokens,
-		logger: logger,
-		router: chi.NewRouter(),
+		pool:            pool,
+		q:               sqlc.New(pool),
+		tokens:          tokens,
+		logger:          logger,
+		checkoutBaseURL: checkoutBaseURL,
+		corsOrigins:     corsOrigins,
+		router:          chi.NewRouter(),
 	}
 	s.routes()
 	return s
@@ -47,6 +51,7 @@ func (s *Server) routes() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(s.cors)
 
 	// Liveness/readiness.
 	r.Get("/healthz", s.handleHealth)
@@ -60,6 +65,16 @@ func (s *Server) routes() {
 		// Public: merchant onboarding + login.
 		r.Post("/signup", s.handleSignup)
 		r.Post("/login", s.handleLogin)
+
+		// Public hosted-checkout endpoints (the customer is not authenticated).
+		r.Get("/checkout/sessions/{id}", s.handleGetCheckoutSession)
+		r.Post("/checkout/sessions/{id}/complete", s.handleCompleteCheckoutSession)
+
+		// Create checkout session: usable via dashboard JWT OR merchant API key.
+		r.Group(func(r chi.Router) {
+			r.Use(s.requireMerchant)
+			r.Post("/checkout/sessions", s.handleCreateCheckoutSession)
+		})
 
 		// Authenticated dashboard API (JWT).
 		r.Group(func(r chi.Router) {
@@ -78,6 +93,21 @@ func (s *Server) routes() {
 
 			r.Get("/gateways", s.handleListGateways)
 			r.Post("/gateways", s.handleConnectGateway)
+
+			r.Post("/coupons", s.handleCreateCoupon)
+			r.Get("/coupons", s.handleListCoupons)
+
+			r.Get("/invoices", s.handleListInvoices)
+			r.Get("/transactions", s.handleListTransactions)
+
+			r.Post("/webhooks", s.handleCreateWebhook)
+			r.Get("/webhooks", s.handleListWebhooks)
+			r.Delete("/webhooks/{id}", s.handleDeleteWebhook)
+			r.Get("/webhook-deliveries", s.handleListWebhookDeliveries)
+
+			r.Post("/api-keys", s.handleCreateAPIKey)
+			r.Get("/api-keys", s.handleListAPIKeys)
+			r.Delete("/api-keys/{id}", s.handleRevokeAPIKey)
 		})
 	})
 }

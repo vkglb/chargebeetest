@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -149,6 +150,67 @@ func (q *Queries) GetMerchantUserByEmail(ctx context.Context, email string) (Mer
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listAPIKeysByMerchant = `-- name: ListAPIKeysByMerchant :many
+SELECT id, merchant_id, prefix, scopes, last_used_at, revoked_at, created_at
+FROM api_keys
+WHERE merchant_id = $1
+ORDER BY created_at DESC
+`
+
+type ListAPIKeysByMerchantRow struct {
+	ID         uuid.UUID          `json:"id"`
+	MerchantID uuid.UUID          `json:"merchant_id"`
+	Prefix     string             `json:"prefix"`
+	Scopes     []string           `json:"scopes"`
+	LastUsedAt *time.Time         `json:"last_used_at"`
+	RevokedAt  *time.Time         `json:"revoked_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListAPIKeysByMerchant(ctx context.Context, merchantID uuid.UUID) ([]ListAPIKeysByMerchantRow, error) {
+	rows, err := q.db.Query(ctx, listAPIKeysByMerchant, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAPIKeysByMerchantRow{}
+	for rows.Next() {
+		var i ListAPIKeysByMerchantRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.MerchantID,
+			&i.Prefix,
+			&i.Scopes,
+			&i.LastUsedAt,
+			&i.RevokedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const revokeAPIKey = `-- name: RevokeAPIKey :exec
+UPDATE api_keys
+SET revoked_at = now()
+WHERE id = $1 AND merchant_id = $2
+`
+
+type RevokeAPIKeyParams struct {
+	ID         uuid.UUID `json:"id"`
+	MerchantID uuid.UUID `json:"merchant_id"`
+}
+
+func (q *Queries) RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error {
+	_, err := q.db.Exec(ctx, revokeAPIKey, arg.ID, arg.MerchantID)
+	return err
 }
 
 const touchAPIKey = `-- name: TouchAPIKey :exec

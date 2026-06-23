@@ -12,7 +12,10 @@ import (
 
 type Querier interface {
 	AdvanceSubscriptionPeriod(ctx context.Context, arg AdvanceSubscriptionPeriodParams) (Subscription, error)
+	CompleteCheckoutSession(ctx context.Context, arg CompleteCheckoutSessionParams) (CheckoutSession, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
+	CreateCheckoutSession(ctx context.Context, arg CreateCheckoutSessionParams) (CheckoutSession, error)
+	CreateCoupon(ctx context.Context, arg CreateCouponParams) (Coupon, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateDunningAttempt(ctx context.Context, arg CreateDunningAttemptParams) (DunningAttempt, error)
 	CreateGatewayAccount(ctx context.Context, arg CreateGatewayAccountParams) (GatewayAccount, error)
@@ -25,7 +28,13 @@ type Querier interface {
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
+	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
+	DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error
 	GetAPIKeyByPrefix(ctx context.Context, prefix string) (ApiKey, error)
+	GetCheckoutSession(ctx context.Context, id uuid.UUID) (CheckoutSession, error)
+	// Joined view for the public hosted page: session + plan + merchant + product.
+	GetCheckoutSessionDetails(ctx context.Context, id uuid.UUID) (GetCheckoutSessionDetailsRow, error)
+	GetCouponByCode(ctx context.Context, arg GetCouponByCodeParams) (Coupon, error)
 	GetCustomer(ctx context.Context, arg GetCustomerParams) (Customer, error)
 	GetDefaultPaymentMethod(ctx context.Context, customerID uuid.UUID) (PaymentMethod, error)
 	GetGatewayAccount(ctx context.Context, arg GetGatewayAccountParams) (GatewayAccount, error)
@@ -36,16 +45,23 @@ type Querier interface {
 	// The merchant's active gateway used for charging (most recently connected).
 	GetPrimaryGatewayAccount(ctx context.Context, merchantID uuid.UUID) (GatewayAccount, error)
 	GetSubscription(ctx context.Context, arg GetSubscriptionParams) (Subscription, error)
+	ListAPIKeysByMerchant(ctx context.Context, merchantID uuid.UUID) ([]ListAPIKeysByMerchantRow, error)
+	ListCouponsByMerchant(ctx context.Context, merchantID uuid.UUID) ([]Coupon, error)
 	ListCustomersByMerchant(ctx context.Context, arg ListCustomersByMerchantParams) ([]Customer, error)
 	// The scheduler cursor: subscriptions due for billing now.
 	ListDueSubscriptions(ctx context.Context, limit int32) ([]Subscription, error)
 	ListGatewayAccountsByMerchant(ctx context.Context, merchantID uuid.UUID) ([]ListGatewayAccountsByMerchantRow, error)
+	ListInvoicesByMerchant(ctx context.Context, arg ListInvoicesByMerchantParams) ([]Invoice, error)
 	ListMerchants(ctx context.Context, arg ListMerchantsParams) ([]Merchant, error)
 	ListPricesByMerchant(ctx context.Context, merchantID uuid.UUID) ([]Price, error)
 	ListProductsByMerchant(ctx context.Context, merchantID uuid.UUID) ([]Product, error)
 	ListSubscriptionsByMerchant(ctx context.Context, arg ListSubscriptionsByMerchantParams) ([]Subscription, error)
+	ListTransactionsByMerchant(ctx context.Context, arg ListTransactionsByMerchantParams) ([]Transaction, error)
+	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]WebhookDelivery, error)
+	ListWebhookEndpoints(ctx context.Context, merchantID uuid.UUID) ([]WebhookEndpoint, error)
 	MarkInvoicePaid(ctx context.Context, id uuid.UUID) (Invoice, error)
 	MarkInvoiceStatus(ctx context.Context, arg MarkInvoiceStatusParams) (Invoice, error)
+	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error
 	SetCustomerGatewayRef(ctx context.Context, arg SetCustomerGatewayRefParams) (Customer, error)
 	SetSubscriptionStatus(ctx context.Context, arg SetSubscriptionStatusParams) (Subscription, error)
 	TouchAPIKey(ctx context.Context, id uuid.UUID) error

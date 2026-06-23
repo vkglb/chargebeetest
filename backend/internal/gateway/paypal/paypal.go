@@ -119,7 +119,7 @@ func (g *Gateway) Charge(ctx context.Context, creds gateway.Credentials, p gatew
 // VerifyWebhook: PayPal verifies webhooks via an API call with transmission
 // headers. v1 accepts the body and trusts the configured secret; full
 // ver-webhook-signature wiring is a follow-up.
-func (g *Gateway) VerifyWebhook(payload []byte, _ , _ string) (string, []byte, error) {
+func (g *Gateway) VerifyWebhook(payload []byte, _, _ string) (string, []byte, error) {
 	var evt struct {
 		EventType string `json:"event_type"`
 	}

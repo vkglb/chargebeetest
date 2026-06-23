@@ -24,6 +24,17 @@ type Config struct {
 
 	// JWTSecret signs dashboard session tokens.
 	JWTSecret string
+
+	// CheckoutBaseURL is where hosted checkout pages are served (the frontend).
+	CheckoutBaseURL string
+
+	// CORSOrigins is the comma-separated list of allowed browser origins
+	// ("*" allows any). The dashboard static site's origin goes here in prod.
+	CORSOrigins string
+
+	// AutoMigrate runs pending migrations on startup when true (handy on PaaS
+	// like Render where there's no separate migration step).
+	AutoMigrate bool
 }
 
 // Load reads configuration from the environment, applying sensible defaults for
@@ -37,6 +48,14 @@ func Load() (*Config, error) {
 		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
 		SendGridAPIKey:      getEnv("SENDGRID_API_KEY", ""),
 		JWTSecret:           getEnv("JWT_SECRET", "dev-insecure-secret-change-me"),
+		CheckoutBaseURL:     getEnv("CHECKOUT_BASE_URL", "http://localhost:5173"),
+		CORSOrigins:         getEnv("CORS_ORIGINS", "*"),
+		AutoMigrate:         getEnv("AUTO_MIGRATE", "false") == "true",
+	}
+
+	// Render (and most PaaS) inject PORT; bind to it when present.
+	if port := os.Getenv("PORT"); port != "" {
+		cfg.HTTPAddr = ":" + port
 	}
 
 	timeoutSecs, err := strconv.Atoi(getEnv("SHUTDOWN_TIMEOUT_SECONDS", "15"))

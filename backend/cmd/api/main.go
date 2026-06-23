@@ -45,6 +45,15 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Optionally apply migrations before serving (handy on Render/PaaS).
+	if cfg.AutoMigrate {
+		logger.Info("running migrations on startup")
+		if err := db.MigrateUp(cfg.DatabaseURL); err != nil {
+			return err
+		}
+		logger.Info("migrations applied")
+	}
+
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
@@ -72,7 +81,7 @@ func run() error {
 	go scheduler.Run(ctx)
 	logger.Info("billing scheduler started", "interval", "1m")
 
-	srv := server.New(pool, tokens, logger)
+	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, logger)
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           srv.Handler(),

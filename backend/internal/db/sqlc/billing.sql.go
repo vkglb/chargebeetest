@@ -282,6 +282,99 @@ func (q *Queries) ListGatewayAccountsByMerchant(ctx context.Context, merchantID 
 	return items, nil
 }
 
+const listInvoicesByMerchant = `-- name: ListInvoicesByMerchant :many
+SELECT id, merchant_id, customer_id, subscription_id, status, currency, subtotal_minor, discount_minor, tax_minor, total_minor, period_start, period_end, issued_at, paid_at, created_at FROM invoices
+WHERE merchant_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListInvoicesByMerchantParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Limit      int32     `json:"limit"`
+	Offset     int32     `json:"offset"`
+}
+
+func (q *Queries) ListInvoicesByMerchant(ctx context.Context, arg ListInvoicesByMerchantParams) ([]Invoice, error) {
+	rows, err := q.db.Query(ctx, listInvoicesByMerchant, arg.MerchantID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Invoice{}
+	for rows.Next() {
+		var i Invoice
+		if err := rows.Scan(
+			&i.ID,
+			&i.MerchantID,
+			&i.CustomerID,
+			&i.SubscriptionID,
+			&i.Status,
+			&i.Currency,
+			&i.SubtotalMinor,
+			&i.DiscountMinor,
+			&i.TaxMinor,
+			&i.TotalMinor,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+			&i.IssuedAt,
+			&i.PaidAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTransactionsByMerchant = `-- name: ListTransactionsByMerchant :many
+SELECT id, merchant_id, invoice_id, gateway_txn_ref, status, amount_minor, currency, failure_reason, idempotency_key, created_at FROM transactions
+WHERE merchant_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListTransactionsByMerchantParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Limit      int32     `json:"limit"`
+	Offset     int32     `json:"offset"`
+}
+
+func (q *Queries) ListTransactionsByMerchant(ctx context.Context, arg ListTransactionsByMerchantParams) ([]Transaction, error) {
+	rows, err := q.db.Query(ctx, listTransactionsByMerchant, arg.MerchantID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Transaction{}
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.MerchantID,
+			&i.InvoiceID,
+			&i.GatewayTxnRef,
+			&i.Status,
+			&i.AmountMinor,
+			&i.Currency,
+			&i.FailureReason,
+			&i.IdempotencyKey,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markInvoicePaid = `-- name: MarkInvoicePaid :one
 UPDATE invoices
 SET status = 'paid', paid_at = now()

@@ -60,3 +60,15 @@ RETURNING *;
 INSERT INTO dunning_attempts (merchant_id, invoice_id, attempt_no, scheduled_at, attempted_at, result)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
+
+-- name: ListInvoicesByMerchant :many
+SELECT * FROM invoices
+WHERE merchant_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: ListTransactionsByMerchant :many
+SELECT * FROM transactions
+WHERE merchant_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;

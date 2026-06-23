@@ -20,14 +20,20 @@ db-up: ## Start Postgres (docker compose)
 db-down: ## Stop Postgres
 	docker compose -f ../docker-compose.yml down
 
-migrate-up: ## Apply all migrations
-	goose -dir migrations postgres "$(DATABASE_URL)" up
+bootstrap: ## Create the chargeebee role + database (needs a Postgres superuser)
+	psql -U postgres -h localhost -f scripts/bootstrap.sql
+
+migrate-up: ## Apply all migrations (embedded runner, no goose CLI needed)
+	go run ./cmd/migrate up
 
 migrate-down: ## Roll back the last migration
-	goose -dir migrations postgres "$(DATABASE_URL)" down
+	go run ./cmd/migrate down
 
 migrate-status: ## Show migration status
-	goose -dir migrations postgres "$(DATABASE_URL)" status
+	go run ./cmd/migrate status
+
+migrate-reset: ## Roll back ALL migrations
+	go run ./cmd/migrate reset
 
 sqlc: ## Generate type-safe DB code from SQL
 	sqlc generate

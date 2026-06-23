@@ -32,6 +32,10 @@ export class ApiError extends Error {
   }
 }
 
+// In dev, paths are proxied to the backend by Vite (empty base). In production
+// (static site), set VITE_API_BASE to the deployed backend URL.
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   // In guest mode, short-circuit to the in-memory mock backend.
   if (isGuest()) {
@@ -42,7 +46,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -61,6 +65,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
+  del: <T>(path: string) => request<T>("DELETE", path),
 };
 
 // ── Domain types (mirror the Go API responses) ──────────────────────────────
@@ -114,4 +119,96 @@ export interface GatewayAccount {
   account_ref: string | null;
   status: string;
   created_at: string;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  discount_type: string; // percentage | fixed
+  value: number;
+  max_redemptions: { Int32: number; Valid: boolean } | number | null;
+  redemptions: number;
+  created_at: string;
+}
+
+export interface Invoice {
+  id: string;
+  customer_id: string;
+  subscription_id: string | null;
+  status: string; // draft|open|paid|void|uncollectible
+  currency: string;
+  subtotal_minor: number;
+  discount_minor: number;
+  tax_minor: number;
+  total_minor: number;
+  period_start: string | null;
+  period_end: string | null;
+  paid_at: string | null;
+  created_at: string;
+}
+
+export interface Transaction {
+  id: string;
+  invoice_id: string | null;
+  gateway_txn_ref: string | null;
+  status: string; // succeeded|failed|pending
+  amount_minor: number;
+  currency: string;
+  failure_reason: string | null;
+  created_at: string;
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  url: string;
+  signing_secret: string;
+  events: string[];
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  endpoint_id: string;
+  event_type: string;
+  status: string; // pending|delivered|failed
+  attempts: number;
+  created_at: string;
+}
+
+export interface ApiKey {
+  id: string;
+  prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  secret: string; // shown once
+}
+
+export interface CheckoutSessionCreated {
+  id: string;
+  url: string;
+  status: string;
+  expires_at: string;
+}
+
+// Public display payload served to the hosted checkout page.
+export interface CheckoutSessionDetails {
+  id: string;
+  status: string;
+  merchant_name: string;
+  product_name: string;
+  amount_minor: number;
+  currency: string;
+  interval_unit: string;
+  interval_count: number;
+  trial_days: number;
+  quantity: number;
+  customer_email: string;
+  success_url: string;
+  cancel_url: string;
 }

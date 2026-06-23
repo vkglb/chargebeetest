@@ -22,6 +22,22 @@ type ApiKey struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type CheckoutSession struct {
+	ID             uuid.UUID          `json:"id"`
+	MerchantID     uuid.UUID          `json:"merchant_id"`
+	PriceID        uuid.UUID          `json:"price_id"`
+	Quantity       int32              `json:"quantity"`
+	Status         string             `json:"status"`
+	CustomerEmail  pgtype.Text        `json:"customer_email"`
+	SuccessUrl     string             `json:"success_url"`
+	CancelUrl      pgtype.Text        `json:"cancel_url"`
+	CustomerID     pgtype.UUID        `json:"customer_id"`
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	CompletedAt    *time.Time         `json:"completed_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type Coupon struct {
 	ID             uuid.UUID          `json:"id"`
 	MerchantID     uuid.UUID          `json:"merchant_id"`

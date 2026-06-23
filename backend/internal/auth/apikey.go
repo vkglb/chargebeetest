@@ -49,3 +49,14 @@ func VerifyAPIKey(presented, storedHash string) bool {
 	got := HashAPIKey(strings.TrimSpace(presented))
 	return subtle.ConstantTimeCompare([]byte(got), []byte(storedHash)) == 1
 }
+
+// PrefixFromKey derives the stored prefix (env + first 4 body chars) from a
+// presented plaintext key, so the key can be looked up without storing it.
+func PrefixFromKey(presented string) (string, bool) {
+	presented = strings.TrimSpace(presented)
+	env, body, ok := strings.Cut(presented, "_")
+	if !ok || len(body) < 4 {
+		return "", false
+	}
+	return fmt.Sprintf("%s_%s", env, body[:4]), true
+}
