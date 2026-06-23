@@ -55,6 +55,7 @@ func (s *Server) handleCreateCheckoutSession(w http.ResponseWriter, r *http.Requ
 
 	session, err := s.q.CreateCheckoutSession(r.Context(), sqlc.CreateCheckoutSessionParams{
 		MerchantID:    merchantID(r),
+		Mode:          mode(r),
 		PriceID:       priceID,
 		Quantity:      req.Quantity,
 		CustomerEmail: pgText(req.CustomerEmail),
@@ -143,9 +144,10 @@ func (s *Server) handleCompleteCheckoutSession(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Create (or reuse) the customer.
+	// Create (or reuse) the customer (in the session's mode).
 	customer, err := s.q.CreateCustomer(ctx, sqlc.CreateCustomerParams{
 		MerchantID:         session.MerchantID,
+		Mode:               session.Mode,
 		Email:              req.Email,
 		Name:               pgText(req.Name),
 		GatewayCustomerRef: pgText(""),
@@ -160,6 +162,7 @@ func (s *Server) handleCompleteCheckoutSession(w http.ResponseWriter, r *http.Re
 	if req.PaymentMethodID != "" {
 		pm, err := s.q.CreatePaymentMethod(ctx, sqlc.CreatePaymentMethodParams{
 			MerchantID:   session.MerchantID,
+			Mode:         session.Mode,
 			CustomerID:   customer.ID,
 			GatewayPmRef: req.PaymentMethodID,
 			Brand:        pgText("card"),
@@ -188,6 +191,7 @@ func (s *Server) handleCompleteCheckoutSession(w http.ResponseWriter, r *http.Re
 
 	sub, err := s.q.CreateSubscription(ctx, sqlc.CreateSubscriptionParams{
 		MerchantID:         session.MerchantID,
+		Mode:               session.Mode,
 		CustomerID:         customer.ID,
 		PriceID:            session.PriceID,
 		PaymentMethodID:    pmID,

@@ -24,6 +24,16 @@ export function setGuest() {
   setToken(GUEST_TOKEN);
 }
 
+// Test/Live mode — isolates each merchant's data + gateway keys.
+const MODE_KEY = "chargeebee_mode";
+export type Mode = "test" | "live";
+export function getMode(): Mode {
+  return localStorage.getItem(MODE_KEY) === "live" ? "live" : "test";
+}
+export function setMode(m: Mode) {
+  localStorage.setItem(MODE_KEY, m);
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -42,7 +52,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     return mockRequest<T>(method, path, body);
   }
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Mode": getMode(), // selects the test/live dataset on the backend
+  };
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 

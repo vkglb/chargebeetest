@@ -20,6 +20,7 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	product, err := s.q.CreateProduct(r.Context(), sqlc.CreateProductParams{
 		MerchantID: merchantID(r),
+		Mode:       mode(r),
 		Name:       req.Name,
 	})
 	if err != nil {
@@ -30,7 +31,10 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListProducts(w http.ResponseWriter, r *http.Request) {
-	products, err := s.q.ListProductsByMerchant(r.Context(), merchantID(r))
+	products, err := s.q.ListProductsByMerchant(r.Context(), sqlc.ListProductsByMerchantParams{
+		MerchantID: merchantID(r),
+		Mode:       mode(r),
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not list products")
 		return
@@ -69,6 +73,7 @@ func (s *Server) handleCreatePrice(w http.ResponseWriter, r *http.Request) {
 
 	price, err := s.q.CreatePrice(r.Context(), sqlc.CreatePriceParams{
 		MerchantID:    merchantID(r),
+		Mode:          mode(r),
 		ProductID:     productID,
 		Nickname:      pgText(req.Nickname),
 		AmountMinor:   req.AmountMinor,
@@ -85,7 +90,10 @@ func (s *Server) handleCreatePrice(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListPrices(w http.ResponseWriter, r *http.Request) {
-	prices, err := s.q.ListPricesByMerchant(r.Context(), merchantID(r))
+	prices, err := s.q.ListPricesByMerchant(r.Context(), sqlc.ListPricesByMerchantParams{
+		MerchantID: merchantID(r),
+		Mode:       mode(r),
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not list prices")
 		return

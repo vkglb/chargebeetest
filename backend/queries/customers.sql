@@ -1,6 +1,6 @@
 -- name: CreateCustomer :one
-INSERT INTO customers (merchant_id, email, name, gateway_customer_ref)
-VALUES ($1, $2, $3, $4)
+INSERT INTO customers (merchant_id, mode, email, name, gateway_customer_ref)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetCustomer :one
@@ -9,9 +9,9 @@ WHERE id = $1 AND merchant_id = $2;
 
 -- name: ListCustomersByMerchant :many
 SELECT * FROM customers
-WHERE merchant_id = $1
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
+LIMIT $3 OFFSET $4;
 
 -- name: SetCustomerGatewayRef :one
 UPDATE customers
@@ -21,8 +21,8 @@ RETURNING *;
 
 -- name: CreatePaymentMethod :one
 INSERT INTO payment_methods (
-    merchant_id, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    merchant_id, mode, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: GetDefaultPaymentMethod :one

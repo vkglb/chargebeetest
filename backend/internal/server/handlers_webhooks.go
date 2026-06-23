@@ -29,6 +29,7 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 	secret := "whsec_" + randomHex(24)
 	ep, err := s.q.CreateWebhookEndpoint(r.Context(), sqlc.CreateWebhookEndpointParams{
 		MerchantID:    merchantID(r),
+		Mode:          mode(r),
 		Url:           req.URL,
 		SigningSecret: secret,
 		Events:        req.Events,
@@ -41,7 +42,10 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListWebhooks(w http.ResponseWriter, r *http.Request) {
-	eps, err := s.q.ListWebhookEndpoints(r.Context(), merchantID(r))
+	eps, err := s.q.ListWebhookEndpoints(r.Context(), sqlc.ListWebhookEndpointsParams{
+		MerchantID: merchantID(r),
+		Mode:       mode(r),
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not list webhook endpoints")
 		return
@@ -68,6 +72,7 @@ func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListWebhookDeliveries(w http.ResponseWriter, r *http.Request) {
 	deliveries, err := s.q.ListWebhookDeliveries(r.Context(), sqlc.ListWebhookDeliveriesParams{
 		MerchantID: merchantID(r),
+		Mode:       mode(r),
 		Limit:      100,
 	})
 	if err != nil {

@@ -2,21 +2,25 @@
 // without the Go API or a database. Data is seeded with realistic samples and
 // persisted to localStorage so it survives reloads. Reset on guest logout.
 
-import type {
-  Product,
-  Price,
-  Customer,
-  Subscription,
-  GatewayAccount,
-  Coupon,
-  Invoice,
-  Transaction,
-  WebhookEndpoint,
-  WebhookDelivery,
-  ApiKey,
+import {
+  getMode,
+  type Product,
+  type Price,
+  type Customer,
+  type Subscription,
+  type GatewayAccount,
+  type Coupon,
+  type Invoice,
+  type Transaction,
+  type WebhookEndpoint,
+  type WebhookDelivery,
+  type ApiKey,
 } from "./client";
 
-const KEY = "chargeebee_mock_db";
+// Each mode gets its own isolated dataset, mirroring real test/live separation.
+function storageKey(): string {
+  return `chargeebee_mock_db_${getMode()}`;
+}
 
 interface DB {
   products: Product[];
@@ -241,8 +245,25 @@ function seed(): DB {
   };
 }
 
+function emptyDB(): DB {
+  return {
+    products: [],
+    prices: [],
+    customers: [],
+    subscriptions: [],
+    gateways: [],
+    coupons: [],
+    invoices: [],
+    transactions: [],
+    webhooks: [],
+    webhookDeliveries: [],
+    apiKeys: [],
+    checkoutSessions: [],
+  };
+}
+
 function load(): DB {
-  const raw = localStorage.getItem(KEY);
+  const raw = localStorage.getItem(storageKey());
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Partial<DB>;
@@ -266,17 +287,19 @@ function load(): DB {
       /* fall through to seed */
     }
   }
-  const db = seed();
+  // Test mode is seeded with rich sample data; live starts empty (true isolation).
+  const db = getMode() === "live" ? emptyDB() : seed();
   save(db);
   return db;
 }
 
 function save(db: DB) {
-  localStorage.setItem(KEY, JSON.stringify(db));
+  localStorage.setItem(storageKey(), JSON.stringify(db));
 }
 
 export function resetMock() {
-  localStorage.removeItem(KEY);
+  localStorage.removeItem("chargeebee_mock_db_test");
+  localStorage.removeItem("chargeebee_mock_db_live");
 }
 
 // mockRequest mirrors the subset of the API the dashboard uses.

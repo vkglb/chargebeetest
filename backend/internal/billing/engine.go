@@ -70,7 +70,10 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 		return fmt.Errorf("resolve payment method: %w", err)
 	}
 
-	acct, err := e.q.GetPrimaryGatewayAccount(ctx, sub.MerchantID)
+	acct, err := e.q.GetPrimaryGatewayAccount(ctx, sqlc.GetPrimaryGatewayAccountParams{
+		MerchantID: sub.MerchantID,
+		Mode:       sub.Mode,
+	})
 	if err != nil {
 		return fmt.Errorf("get gateway account: %w", err)
 	}
@@ -94,6 +97,7 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 	// Create the invoice up front (open), so the charge has something to settle.
 	inv, err := e.q.CreateInvoice(ctx, sqlc.CreateInvoiceParams{
 		MerchantID:     sub.MerchantID,
+		Mode:           sub.Mode,
 		CustomerID:     sub.CustomerID,
 		SubscriptionID: pgUUID(sub.ID),
 		Status:         "open",
@@ -128,6 +132,7 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 	// Record the transaction regardless of outcome.
 	_, err = e.q.CreateTransaction(ctx, sqlc.CreateTransactionParams{
 		MerchantID:     sub.MerchantID,
+		Mode:           sub.Mode,
 		InvoiceID:      pgUUID(inv.ID),
 		GatewayTxnRef:  pgText(res.GatewayTxnRef),
 		Status:         string(res.Status),
@@ -177,6 +182,7 @@ func (e *Engine) onChargeFailed(ctx context.Context, sub sqlc.Subscription, invo
 	if ok {
 		if _, err := e.q.CreateDunningAttempt(ctx, sqlc.CreateDunningAttemptParams{
 			MerchantID:  sub.MerchantID,
+			Mode:        sub.Mode,
 			InvoiceID:   invoiceID,
 			AttemptNo:   1,
 			ScheduledAt: pgTimestamptz(when),

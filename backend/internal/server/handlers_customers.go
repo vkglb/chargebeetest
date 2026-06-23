@@ -20,6 +20,7 @@ func (s *Server) handleCreateCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 	customer, err := s.q.CreateCustomer(r.Context(), sqlc.CreateCustomerParams{
 		MerchantID:         merchantID(r),
+		Mode:               mode(r),
 		Email:              req.Email,
 		Name:               pgText(req.Name),
 		GatewayCustomerRef: pgText(req.GatewayCustomerRef),
@@ -34,6 +35,7 @@ func (s *Server) handleCreateCustomer(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListCustomers(w http.ResponseWriter, r *http.Request) {
 	customers, err := s.q.ListCustomersByMerchant(r.Context(), sqlc.ListCustomersByMerchantParams{
 		MerchantID: merchantID(r),
+		Mode:       mode(r),
 		Limit:      100,
 		Offset:     0,
 	})

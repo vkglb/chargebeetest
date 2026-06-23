@@ -1,11 +1,11 @@
 -- name: CreateWebhookEndpoint :one
-INSERT INTO webhook_endpoints (merchant_id, url, signing_secret, events, enabled)
-VALUES ($1, $2, $3, $4, true)
+INSERT INTO webhook_endpoints (merchant_id, mode, url, signing_secret, events, enabled)
+VALUES ($1, $2, $3, $4, $5, true)
 RETURNING *;
 
 -- name: ListWebhookEndpoints :many
 SELECT * FROM webhook_endpoints
-WHERE merchant_id = $1
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC;
 
 -- name: DeleteWebhookEndpoint :exec
@@ -14,6 +14,6 @@ WHERE id = $1 AND merchant_id = $2;
 
 -- name: ListWebhookDeliveries :many
 SELECT * FROM webhook_deliveries
-WHERE merchant_id = $1
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
-LIMIT $2;
+LIMIT $3;

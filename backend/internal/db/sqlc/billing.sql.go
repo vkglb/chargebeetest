@@ -14,13 +14,14 @@ import (
 )
 
 const createDunningAttempt = `-- name: CreateDunningAttempt :one
-INSERT INTO dunning_attempts (merchant_id, invoice_id, attempt_no, scheduled_at, attempted_at, result)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, merchant_id, invoice_id, attempt_no, scheduled_at, attempted_at, result, created_at
+INSERT INTO dunning_attempts (merchant_id, mode, invoice_id, attempt_no, scheduled_at, attempted_at, result)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, merchant_id, invoice_id, attempt_no, scheduled_at, attempted_at, result, created_at, mode
 `
 
 type CreateDunningAttemptParams struct {
 	MerchantID  uuid.UUID          `json:"merchant_id"`
+	Mode        string             `json:"mode"`
 	InvoiceID   uuid.UUID          `json:"invoice_id"`
 	AttemptNo   int32              `json:"attempt_no"`
 	ScheduledAt pgtype.Timestamptz `json:"scheduled_at"`
@@ -31,6 +32,7 @@ type CreateDunningAttemptParams struct {
 func (q *Queries) CreateDunningAttempt(ctx context.Context, arg CreateDunningAttemptParams) (DunningAttempt, error) {
 	row := q.db.QueryRow(ctx, createDunningAttempt,
 		arg.MerchantID,
+		arg.Mode,
 		arg.InvoiceID,
 		arg.AttemptNo,
 		arg.ScheduledAt,
@@ -47,21 +49,23 @@ func (q *Queries) CreateDunningAttempt(ctx context.Context, arg CreateDunningAtt
 		&i.AttemptedAt,
 		&i.Result,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const createInvoice = `-- name: CreateInvoice :one
 INSERT INTO invoices (
-    merchant_id, customer_id, subscription_id, status, currency,
+    merchant_id, mode, customer_id, subscription_id, status, currency,
     subtotal_minor, discount_minor, tax_minor, total_minor,
     period_start, period_end, issued_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, merchant_id, customer_id, subscription_id, status, currency, subtotal_minor, discount_minor, tax_minor, total_minor, period_start, period_end, issued_at, paid_at, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, merchant_id, customer_id, subscription_id, status, currency, subtotal_minor, discount_minor, tax_minor, total_minor, period_start, period_end, issued_at, paid_at, created_at, mode
 `
 
 type CreateInvoiceParams struct {
 	MerchantID     uuid.UUID   `json:"merchant_id"`
+	Mode           string      `json:"mode"`
 	CustomerID     uuid.UUID   `json:"customer_id"`
 	SubscriptionID pgtype.UUID `json:"subscription_id"`
 	Status         string      `json:"status"`
@@ -78,6 +82,7 @@ type CreateInvoiceParams struct {
 func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (Invoice, error) {
 	row := q.db.QueryRow(ctx, createInvoice,
 		arg.MerchantID,
+		arg.Mode,
 		arg.CustomerID,
 		arg.SubscriptionID,
 		arg.Status,
@@ -107,6 +112,7 @@ func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (I
 		&i.IssuedAt,
 		&i.PaidAt,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
@@ -147,14 +153,15 @@ func (q *Queries) CreateInvoiceLineItem(ctx context.Context, arg CreateInvoiceLi
 
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO transactions (
-    merchant_id, invoice_id, gateway_txn_ref, status,
+    merchant_id, mode, invoice_id, gateway_txn_ref, status,
     amount_minor, currency, failure_reason, idempotency_key
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, merchant_id, invoice_id, gateway_txn_ref, status, amount_minor, currency, failure_reason, idempotency_key, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, merchant_id, invoice_id, gateway_txn_ref, status, amount_minor, currency, failure_reason, idempotency_key, created_at, mode
 `
 
 type CreateTransactionParams struct {
 	MerchantID     uuid.UUID   `json:"merchant_id"`
+	Mode           string      `json:"mode"`
 	InvoiceID      pgtype.UUID `json:"invoice_id"`
 	GatewayTxnRef  pgtype.Text `json:"gateway_txn_ref"`
 	Status         string      `json:"status"`
@@ -167,6 +174,7 @@ type CreateTransactionParams struct {
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
 	row := q.db.QueryRow(ctx, createTransaction,
 		arg.MerchantID,
+		arg.Mode,
 		arg.InvoiceID,
 		arg.GatewayTxnRef,
 		arg.Status,
@@ -187,22 +195,24 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.FailureReason,
 		&i.IdempotencyKey,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const getGatewayAccount = `-- name: GetGatewayAccount :one
-SELECT id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at FROM gateway_accounts
-WHERE merchant_id = $1 AND provider = $2
+SELECT id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at, mode FROM gateway_accounts
+WHERE merchant_id = $1 AND mode = $2 AND provider = $3
 `
 
 type GetGatewayAccountParams struct {
 	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
 	Provider   string    `json:"provider"`
 }
 
 func (q *Queries) GetGatewayAccount(ctx context.Context, arg GetGatewayAccountParams) (GatewayAccount, error) {
-	row := q.db.QueryRow(ctx, getGatewayAccount, arg.MerchantID, arg.Provider)
+	row := q.db.QueryRow(ctx, getGatewayAccount, arg.MerchantID, arg.Mode, arg.Provider)
 	var i GatewayAccount
 	err := row.Scan(
 		&i.ID,
@@ -212,20 +222,26 @@ func (q *Queries) GetGatewayAccount(ctx context.Context, arg GetGatewayAccountPa
 		&i.EncryptedCredentials,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const getPrimaryGatewayAccount = `-- name: GetPrimaryGatewayAccount :one
-SELECT id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at FROM gateway_accounts
-WHERE merchant_id = $1 AND status = 'connected'
+SELECT id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at, mode FROM gateway_accounts
+WHERE merchant_id = $1 AND mode = $2 AND status = 'connected'
 ORDER BY created_at DESC
 LIMIT 1
 `
 
-// The merchant's active gateway used for charging (most recently connected).
-func (q *Queries) GetPrimaryGatewayAccount(ctx context.Context, merchantID uuid.UUID) (GatewayAccount, error) {
-	row := q.db.QueryRow(ctx, getPrimaryGatewayAccount, merchantID)
+type GetPrimaryGatewayAccountParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+// The merchant's active gateway used for charging, for a given mode.
+func (q *Queries) GetPrimaryGatewayAccount(ctx context.Context, arg GetPrimaryGatewayAccountParams) (GatewayAccount, error) {
+	row := q.db.QueryRow(ctx, getPrimaryGatewayAccount, arg.MerchantID, arg.Mode)
 	var i GatewayAccount
 	err := row.Scan(
 		&i.ID,
@@ -235,28 +251,35 @@ func (q *Queries) GetPrimaryGatewayAccount(ctx context.Context, merchantID uuid.
 		&i.EncryptedCredentials,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const listGatewayAccountsByMerchant = `-- name: ListGatewayAccountsByMerchant :many
-SELECT id, merchant_id, provider, account_ref, status, created_at
+SELECT id, merchant_id, mode, provider, account_ref, status, created_at
 FROM gateway_accounts
-WHERE merchant_id = $1
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
 `
+
+type ListGatewayAccountsByMerchantParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
 
 type ListGatewayAccountsByMerchantRow struct {
 	ID         uuid.UUID          `json:"id"`
 	MerchantID uuid.UUID          `json:"merchant_id"`
+	Mode       string             `json:"mode"`
 	Provider   string             `json:"provider"`
 	AccountRef pgtype.Text        `json:"account_ref"`
 	Status     string             `json:"status"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
-func (q *Queries) ListGatewayAccountsByMerchant(ctx context.Context, merchantID uuid.UUID) ([]ListGatewayAccountsByMerchantRow, error) {
-	rows, err := q.db.Query(ctx, listGatewayAccountsByMerchant, merchantID)
+func (q *Queries) ListGatewayAccountsByMerchant(ctx context.Context, arg ListGatewayAccountsByMerchantParams) ([]ListGatewayAccountsByMerchantRow, error) {
+	rows, err := q.db.Query(ctx, listGatewayAccountsByMerchant, arg.MerchantID, arg.Mode)
 	if err != nil {
 		return nil, err
 	}
@@ -267,6 +290,7 @@ func (q *Queries) ListGatewayAccountsByMerchant(ctx context.Context, merchantID 
 		if err := rows.Scan(
 			&i.ID,
 			&i.MerchantID,
+			&i.Mode,
 			&i.Provider,
 			&i.AccountRef,
 			&i.Status,
@@ -283,20 +307,26 @@ func (q *Queries) ListGatewayAccountsByMerchant(ctx context.Context, merchantID 
 }
 
 const listInvoicesByMerchant = `-- name: ListInvoicesByMerchant :many
-SELECT id, merchant_id, customer_id, subscription_id, status, currency, subtotal_minor, discount_minor, tax_minor, total_minor, period_start, period_end, issued_at, paid_at, created_at FROM invoices
-WHERE merchant_id = $1
+SELECT id, merchant_id, customer_id, subscription_id, status, currency, subtotal_minor, discount_minor, tax_minor, total_minor, period_start, period_end, issued_at, paid_at, created_at, mode FROM invoices
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+LIMIT $3 OFFSET $4
 `
 
 type ListInvoicesByMerchantParams struct {
 	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
 	Limit      int32     `json:"limit"`
 	Offset     int32     `json:"offset"`
 }
 
 func (q *Queries) ListInvoicesByMerchant(ctx context.Context, arg ListInvoicesByMerchantParams) ([]Invoice, error) {
-	rows, err := q.db.Query(ctx, listInvoicesByMerchant, arg.MerchantID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listInvoicesByMerchant,
+		arg.MerchantID,
+		arg.Mode,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -320,6 +350,7 @@ func (q *Queries) ListInvoicesByMerchant(ctx context.Context, arg ListInvoicesBy
 			&i.IssuedAt,
 			&i.PaidAt,
 			&i.CreatedAt,
+			&i.Mode,
 		); err != nil {
 			return nil, err
 		}
@@ -332,20 +363,26 @@ func (q *Queries) ListInvoicesByMerchant(ctx context.Context, arg ListInvoicesBy
 }
 
 const listTransactionsByMerchant = `-- name: ListTransactionsByMerchant :many
-SELECT id, merchant_id, invoice_id, gateway_txn_ref, status, amount_minor, currency, failure_reason, idempotency_key, created_at FROM transactions
-WHERE merchant_id = $1
+SELECT id, merchant_id, invoice_id, gateway_txn_ref, status, amount_minor, currency, failure_reason, idempotency_key, created_at, mode FROM transactions
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+LIMIT $3 OFFSET $4
 `
 
 type ListTransactionsByMerchantParams struct {
 	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
 	Limit      int32     `json:"limit"`
 	Offset     int32     `json:"offset"`
 }
 
 func (q *Queries) ListTransactionsByMerchant(ctx context.Context, arg ListTransactionsByMerchantParams) ([]Transaction, error) {
-	rows, err := q.db.Query(ctx, listTransactionsByMerchant, arg.MerchantID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listTransactionsByMerchant,
+		arg.MerchantID,
+		arg.Mode,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -364,6 +401,7 @@ func (q *Queries) ListTransactionsByMerchant(ctx context.Context, arg ListTransa
 			&i.FailureReason,
 			&i.IdempotencyKey,
 			&i.CreatedAt,
+			&i.Mode,
 		); err != nil {
 			return nil, err
 		}
@@ -379,7 +417,7 @@ const markInvoicePaid = `-- name: MarkInvoicePaid :one
 UPDATE invoices
 SET status = 'paid', paid_at = now()
 WHERE id = $1
-RETURNING id, merchant_id, customer_id, subscription_id, status, currency, subtotal_minor, discount_minor, tax_minor, total_minor, period_start, period_end, issued_at, paid_at, created_at
+RETURNING id, merchant_id, customer_id, subscription_id, status, currency, subtotal_minor, discount_minor, tax_minor, total_minor, period_start, period_end, issued_at, paid_at, created_at, mode
 `
 
 func (q *Queries) MarkInvoicePaid(ctx context.Context, id uuid.UUID) (Invoice, error) {
@@ -401,6 +439,7 @@ func (q *Queries) MarkInvoicePaid(ctx context.Context, id uuid.UUID) (Invoice, e
 		&i.IssuedAt,
 		&i.PaidAt,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
@@ -409,7 +448,7 @@ const markInvoiceStatus = `-- name: MarkInvoiceStatus :one
 UPDATE invoices
 SET status = $2
 WHERE id = $1
-RETURNING id, merchant_id, customer_id, subscription_id, status, currency, subtotal_minor, discount_minor, tax_minor, total_minor, period_start, period_end, issued_at, paid_at, created_at
+RETURNING id, merchant_id, customer_id, subscription_id, status, currency, subtotal_minor, discount_minor, tax_minor, total_minor, period_start, period_end, issued_at, paid_at, created_at, mode
 `
 
 type MarkInvoiceStatusParams struct {
@@ -436,22 +475,24 @@ func (q *Queries) MarkInvoiceStatus(ctx context.Context, arg MarkInvoiceStatusPa
 		&i.IssuedAt,
 		&i.PaidAt,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const upsertGatewayAccount = `-- name: UpsertGatewayAccount :one
-INSERT INTO gateway_accounts (merchant_id, provider, account_ref, encrypted_credentials, status)
-VALUES ($1, $2, $3, $4, 'connected')
-ON CONFLICT (merchant_id, provider)
+INSERT INTO gateway_accounts (merchant_id, mode, provider, account_ref, encrypted_credentials, status)
+VALUES ($1, $2, $3, $4, $5, 'connected')
+ON CONFLICT (merchant_id, mode, provider)
 DO UPDATE SET account_ref = EXCLUDED.account_ref,
               encrypted_credentials = EXCLUDED.encrypted_credentials,
               status = 'connected'
-RETURNING id, merchant_id, provider, account_ref, status, created_at
+RETURNING id, merchant_id, mode, provider, account_ref, status, created_at
 `
 
 type UpsertGatewayAccountParams struct {
 	MerchantID           uuid.UUID   `json:"merchant_id"`
+	Mode                 string      `json:"mode"`
 	Provider             string      `json:"provider"`
 	AccountRef           pgtype.Text `json:"account_ref"`
 	EncryptedCredentials []byte      `json:"encrypted_credentials"`
@@ -460,6 +501,7 @@ type UpsertGatewayAccountParams struct {
 type UpsertGatewayAccountRow struct {
 	ID         uuid.UUID          `json:"id"`
 	MerchantID uuid.UUID          `json:"merchant_id"`
+	Mode       string             `json:"mode"`
 	Provider   string             `json:"provider"`
 	AccountRef pgtype.Text        `json:"account_ref"`
 	Status     string             `json:"status"`
@@ -469,6 +511,7 @@ type UpsertGatewayAccountRow struct {
 func (q *Queries) UpsertGatewayAccount(ctx context.Context, arg UpsertGatewayAccountParams) (UpsertGatewayAccountRow, error) {
 	row := q.db.QueryRow(ctx, upsertGatewayAccount,
 		arg.MerchantID,
+		arg.Mode,
 		arg.Provider,
 		arg.AccountRef,
 		arg.EncryptedCredentials,
@@ -477,6 +520,7 @@ func (q *Queries) UpsertGatewayAccount(ctx context.Context, arg UpsertGatewayAcc
 	err := row.Scan(
 		&i.ID,
 		&i.MerchantID,
+		&i.Mode,
 		&i.Provider,
 		&i.AccountRef,
 		&i.Status,

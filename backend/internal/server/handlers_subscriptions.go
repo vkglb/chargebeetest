@@ -73,6 +73,7 @@ func (s *Server) handleCreateSubscription(w http.ResponseWriter, r *http.Request
 
 	sub, err := s.q.CreateSubscription(r.Context(), sqlc.CreateSubscriptionParams{
 		MerchantID:         mid,
+		Mode:               mode(r),
 		CustomerID:         customerID,
 		PriceID:            priceID,
 		PaymentMethodID:    pmID,
@@ -93,6 +94,7 @@ func (s *Server) handleCreateSubscription(w http.ResponseWriter, r *http.Request
 func (s *Server) handleListSubscriptions(w http.ResponseWriter, r *http.Request) {
 	subs, err := s.q.ListSubscriptionsByMerchant(r.Context(), sqlc.ListSubscriptionsByMerchantParams{
 		MerchantID: merchantID(r),
+		Mode:       mode(r),
 		Limit:      100,
 		Offset:     0,
 	})

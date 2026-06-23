@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { getMode, setMode, type Mode } from "../api/client";
 
 const navGroups = [
   {
@@ -42,11 +43,34 @@ export default function Layout() {
     navigate("/login");
   }
 
+  const current = getMode();
+  function switchMode(m: Mode) {
+    if (m === current) return;
+    setMode(m);
+    // Reload so every page re-fetches its data for the selected mode.
+    window.location.reload();
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">⚡ Billing</div>
         {isGuest && <div className="demo-pill">Demo mode</div>}
+
+        <div className={`mode-toggle ${current}`}>
+          <button
+            className={current === "test" ? "active" : ""}
+            onClick={() => switchMode("test")}
+          >
+            Test
+          </button>
+          <button
+            className={current === "live" ? "active" : ""}
+            onClick={() => switchMode("live")}
+          >
+            Live
+          </button>
+        </div>
         <nav>
           {navGroups.map((group, gi) => (
             <div key={gi} className="nav-group">

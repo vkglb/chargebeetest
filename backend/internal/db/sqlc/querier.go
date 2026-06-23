@@ -42,23 +42,23 @@ type Querier interface {
 	GetMerchantUserByEmail(ctx context.Context, email string) (MerchantUser, error)
 	GetPaymentMethod(ctx context.Context, id uuid.UUID) (PaymentMethod, error)
 	GetPrice(ctx context.Context, arg GetPriceParams) (Price, error)
-	// The merchant's active gateway used for charging (most recently connected).
-	GetPrimaryGatewayAccount(ctx context.Context, merchantID uuid.UUID) (GatewayAccount, error)
+	// The merchant's active gateway used for charging, for a given mode.
+	GetPrimaryGatewayAccount(ctx context.Context, arg GetPrimaryGatewayAccountParams) (GatewayAccount, error)
 	GetSubscription(ctx context.Context, arg GetSubscriptionParams) (Subscription, error)
 	ListAPIKeysByMerchant(ctx context.Context, merchantID uuid.UUID) ([]ListAPIKeysByMerchantRow, error)
-	ListCouponsByMerchant(ctx context.Context, merchantID uuid.UUID) ([]Coupon, error)
+	ListCouponsByMerchant(ctx context.Context, arg ListCouponsByMerchantParams) ([]Coupon, error)
 	ListCustomersByMerchant(ctx context.Context, arg ListCustomersByMerchantParams) ([]Customer, error)
-	// The scheduler cursor: subscriptions due for billing now.
+	// The scheduler cursor: subscriptions due for billing now (across all modes).
 	ListDueSubscriptions(ctx context.Context, limit int32) ([]Subscription, error)
-	ListGatewayAccountsByMerchant(ctx context.Context, merchantID uuid.UUID) ([]ListGatewayAccountsByMerchantRow, error)
+	ListGatewayAccountsByMerchant(ctx context.Context, arg ListGatewayAccountsByMerchantParams) ([]ListGatewayAccountsByMerchantRow, error)
 	ListInvoicesByMerchant(ctx context.Context, arg ListInvoicesByMerchantParams) ([]Invoice, error)
 	ListMerchants(ctx context.Context, arg ListMerchantsParams) ([]Merchant, error)
-	ListPricesByMerchant(ctx context.Context, merchantID uuid.UUID) ([]Price, error)
-	ListProductsByMerchant(ctx context.Context, merchantID uuid.UUID) ([]Product, error)
+	ListPricesByMerchant(ctx context.Context, arg ListPricesByMerchantParams) ([]Price, error)
+	ListProductsByMerchant(ctx context.Context, arg ListProductsByMerchantParams) ([]Product, error)
 	ListSubscriptionsByMerchant(ctx context.Context, arg ListSubscriptionsByMerchantParams) ([]Subscription, error)
 	ListTransactionsByMerchant(ctx context.Context, arg ListTransactionsByMerchantParams) ([]Transaction, error)
 	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]WebhookDelivery, error)
-	ListWebhookEndpoints(ctx context.Context, merchantID uuid.UUID) ([]WebhookEndpoint, error)
+	ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpointsParams) ([]WebhookEndpoint, error)
 	MarkInvoicePaid(ctx context.Context, id uuid.UUID) (Invoice, error)
 	MarkInvoiceStatus(ctx context.Context, arg MarkInvoiceStatusParams) (Invoice, error)
 	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error

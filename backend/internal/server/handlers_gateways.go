@@ -9,7 +9,10 @@ import (
 // handleListGateways returns the merchant's connected payment gateways. Secrets
 // are never returned — only provider, account ref, and status.
 func (s *Server) handleListGateways(w http.ResponseWriter, r *http.Request) {
-	accounts, err := s.q.ListGatewayAccountsByMerchant(r.Context(), merchantID(r))
+	accounts, err := s.q.ListGatewayAccountsByMerchant(r.Context(), sqlc.ListGatewayAccountsByMerchantParams{
+		MerchantID: merchantID(r),
+		Mode:       mode(r),
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not list gateways")
 		return
@@ -44,6 +47,7 @@ func (s *Server) handleConnectGateway(w http.ResponseWriter, r *http.Request) {
 
 	account, err := s.q.UpsertGatewayAccount(r.Context(), sqlc.UpsertGatewayAccountParams{
 		MerchantID:           merchantID(r),
+		Mode:                 mode(r),
 		Provider:             req.Provider,
 		AccountRef:           pgText(req.AccountRef),
 		EncryptedCredentials: []byte(req.SecretKey),

@@ -14,14 +14,15 @@ import (
 
 const createPrice = `-- name: CreatePrice :one
 INSERT INTO prices (
-    merchant_id, product_id, nickname, amount_minor, currency,
+    merchant_id, mode, product_id, nickname, amount_minor, currency,
     interval_unit, interval_count, trial_days
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, merchant_id, product_id, nickname, amount_minor, currency, interval_unit, interval_count, trial_days, status, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, merchant_id, product_id, nickname, amount_minor, currency, interval_unit, interval_count, trial_days, status, created_at, mode
 `
 
 type CreatePriceParams struct {
 	MerchantID    uuid.UUID   `json:"merchant_id"`
+	Mode          string      `json:"mode"`
 	ProductID     uuid.UUID   `json:"product_id"`
 	Nickname      pgtype.Text `json:"nickname"`
 	AmountMinor   int64       `json:"amount_minor"`
@@ -34,6 +35,7 @@ type CreatePriceParams struct {
 func (q *Queries) CreatePrice(ctx context.Context, arg CreatePriceParams) (Price, error) {
 	row := q.db.QueryRow(ctx, createPrice,
 		arg.MerchantID,
+		arg.Mode,
 		arg.ProductID,
 		arg.Nickname,
 		arg.AmountMinor,
@@ -55,23 +57,25 @@ func (q *Queries) CreatePrice(ctx context.Context, arg CreatePriceParams) (Price
 		&i.TrialDays,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const createProduct = `-- name: CreateProduct :one
-INSERT INTO products (merchant_id, name)
-VALUES ($1, $2)
-RETURNING id, merchant_id, name, status, created_at
+INSERT INTO products (merchant_id, mode, name)
+VALUES ($1, $2, $3)
+RETURNING id, merchant_id, name, status, created_at, mode
 `
 
 type CreateProductParams struct {
 	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
 	Name       string    `json:"name"`
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
-	row := q.db.QueryRow(ctx, createProduct, arg.MerchantID, arg.Name)
+	row := q.db.QueryRow(ctx, createProduct, arg.MerchantID, arg.Mode, arg.Name)
 	var i Product
 	err := row.Scan(
 		&i.ID,
@@ -79,12 +83,13 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		&i.Name,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const getPrice = `-- name: GetPrice :one
-SELECT id, merchant_id, product_id, nickname, amount_minor, currency, interval_unit, interval_count, trial_days, status, created_at FROM prices
+SELECT id, merchant_id, product_id, nickname, amount_minor, currency, interval_unit, interval_count, trial_days, status, created_at, mode FROM prices
 WHERE id = $1 AND merchant_id = $2
 `
 
@@ -108,18 +113,24 @@ func (q *Queries) GetPrice(ctx context.Context, arg GetPriceParams) (Price, erro
 		&i.TrialDays,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const listPricesByMerchant = `-- name: ListPricesByMerchant :many
-SELECT id, merchant_id, product_id, nickname, amount_minor, currency, interval_unit, interval_count, trial_days, status, created_at FROM prices
-WHERE merchant_id = $1
+SELECT id, merchant_id, product_id, nickname, amount_minor, currency, interval_unit, interval_count, trial_days, status, created_at, mode FROM prices
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListPricesByMerchant(ctx context.Context, merchantID uuid.UUID) ([]Price, error) {
-	rows, err := q.db.Query(ctx, listPricesByMerchant, merchantID)
+type ListPricesByMerchantParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+func (q *Queries) ListPricesByMerchant(ctx context.Context, arg ListPricesByMerchantParams) ([]Price, error) {
+	rows, err := q.db.Query(ctx, listPricesByMerchant, arg.MerchantID, arg.Mode)
 	if err != nil {
 		return nil, err
 	}
@@ -139,6 +150,7 @@ func (q *Queries) ListPricesByMerchant(ctx context.Context, merchantID uuid.UUID
 			&i.TrialDays,
 			&i.Status,
 			&i.CreatedAt,
+			&i.Mode,
 		); err != nil {
 			return nil, err
 		}
@@ -151,13 +163,18 @@ func (q *Queries) ListPricesByMerchant(ctx context.Context, merchantID uuid.UUID
 }
 
 const listProductsByMerchant = `-- name: ListProductsByMerchant :many
-SELECT id, merchant_id, name, status, created_at FROM products
-WHERE merchant_id = $1
+SELECT id, merchant_id, name, status, created_at, mode FROM products
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListProductsByMerchant(ctx context.Context, merchantID uuid.UUID) ([]Product, error) {
-	rows, err := q.db.Query(ctx, listProductsByMerchant, merchantID)
+type ListProductsByMerchantParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+func (q *Queries) ListProductsByMerchant(ctx context.Context, arg ListProductsByMerchantParams) ([]Product, error) {
+	rows, err := q.db.Query(ctx, listProductsByMerchant, arg.MerchantID, arg.Mode)
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +188,7 @@ func (q *Queries) ListProductsByMerchant(ctx context.Context, merchantID uuid.UU
 			&i.Name,
 			&i.Status,
 			&i.CreatedAt,
+			&i.Mode,
 		); err != nil {
 			return nil, err
 		}

@@ -36,6 +36,7 @@ type CheckoutSession struct {
 	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
 	CompletedAt    *time.Time         `json:"completed_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Mode           string             `json:"mode"`
 }
 
 type Coupon struct {
@@ -48,6 +49,7 @@ type Coupon struct {
 	Redemptions    int32              `json:"redemptions"`
 	ExpiresAt      *time.Time         `json:"expires_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Mode           string             `json:"mode"`
 }
 
 type Customer struct {
@@ -58,6 +60,7 @@ type Customer struct {
 	GatewayCustomerRef pgtype.Text        `json:"gateway_customer_ref"`
 	Metadata           []byte             `json:"metadata"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	Mode               string             `json:"mode"`
 }
 
 type DunningAttempt struct {
@@ -69,6 +72,7 @@ type DunningAttempt struct {
 	AttemptedAt *time.Time         `json:"attempted_at"`
 	Result      pgtype.Text        `json:"result"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Mode        string             `json:"mode"`
 }
 
 type Event struct {
@@ -87,6 +91,7 @@ type GatewayAccount struct {
 	EncryptedCredentials []byte             `json:"encrypted_credentials"`
 	Status               string             `json:"status"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	Mode                 string             `json:"mode"`
 }
 
 type Invoice struct {
@@ -105,6 +110,7 @@ type Invoice struct {
 	IssuedAt       *time.Time         `json:"issued_at"`
 	PaidAt         *time.Time         `json:"paid_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Mode           string             `json:"mode"`
 }
 
 type InvoiceLineItem struct {
@@ -144,6 +150,7 @@ type PaymentMethod struct {
 	ExpYear      pgtype.Int4        `json:"exp_year"`
 	IsDefault    bool               `json:"is_default"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Mode         string             `json:"mode"`
 }
 
 type Price struct {
@@ -158,6 +165,7 @@ type Price struct {
 	TrialDays     int32              `json:"trial_days"`
 	Status        string             `json:"status"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Mode          string             `json:"mode"`
 }
 
 type Product struct {
@@ -166,6 +174,7 @@ type Product struct {
 	Name       string             `json:"name"`
 	Status     string             `json:"status"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Mode       string             `json:"mode"`
 }
 
 type Subscription struct {
@@ -183,6 +192,7 @@ type Subscription struct {
 	CancelledAt        *time.Time         `json:"cancelled_at"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	Mode               string             `json:"mode"`
 }
 
 type Transaction struct {
@@ -196,6 +206,7 @@ type Transaction struct {
 	FailureReason  pgtype.Text        `json:"failure_reason"`
 	IdempotencyKey pgtype.Text        `json:"idempotency_key"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Mode           string             `json:"mode"`
 }
 
 type WebhookDelivery struct {
@@ -207,6 +218,7 @@ type WebhookDelivery struct {
 	Status     string             `json:"status"`
 	Attempts   int32              `json:"attempts"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Mode       string             `json:"mode"`
 }
 
 type WebhookEndpoint struct {
@@ -217,4 +229,5 @@ type WebhookEndpoint struct {
 	Events        []string           `json:"events"`
 	Enabled       bool               `json:"enabled"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Mode          string             `json:"mode"`
 }

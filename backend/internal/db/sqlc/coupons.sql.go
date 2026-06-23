@@ -14,13 +14,14 @@ import (
 )
 
 const createCoupon = `-- name: CreateCoupon :one
-INSERT INTO coupons (merchant_id, code, discount_type, value, max_redemptions, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at
+INSERT INTO coupons (merchant_id, mode, code, discount_type, value, max_redemptions, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode
 `
 
 type CreateCouponParams struct {
 	MerchantID     uuid.UUID   `json:"merchant_id"`
+	Mode           string      `json:"mode"`
 	Code           string      `json:"code"`
 	DiscountType   string      `json:"discount_type"`
 	Value          int64       `json:"value"`
@@ -31,6 +32,7 @@ type CreateCouponParams struct {
 func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (Coupon, error) {
 	row := q.db.QueryRow(ctx, createCoupon,
 		arg.MerchantID,
+		arg.Mode,
 		arg.Code,
 		arg.DiscountType,
 		arg.Value,
@@ -48,22 +50,24 @@ func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (Cou
 		&i.Redemptions,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const getCouponByCode = `-- name: GetCouponByCode :one
-SELECT id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at FROM coupons
-WHERE merchant_id = $1 AND code = $2
+SELECT id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode FROM coupons
+WHERE merchant_id = $1 AND mode = $2 AND code = $3
 `
 
 type GetCouponByCodeParams struct {
 	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
 	Code       string    `json:"code"`
 }
 
 func (q *Queries) GetCouponByCode(ctx context.Context, arg GetCouponByCodeParams) (Coupon, error) {
-	row := q.db.QueryRow(ctx, getCouponByCode, arg.MerchantID, arg.Code)
+	row := q.db.QueryRow(ctx, getCouponByCode, arg.MerchantID, arg.Mode, arg.Code)
 	var i Coupon
 	err := row.Scan(
 		&i.ID,
@@ -75,18 +79,24 @@ func (q *Queries) GetCouponByCode(ctx context.Context, arg GetCouponByCodeParams
 		&i.Redemptions,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const listCouponsByMerchant = `-- name: ListCouponsByMerchant :many
-SELECT id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at FROM coupons
-WHERE merchant_id = $1
+SELECT id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode FROM coupons
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListCouponsByMerchant(ctx context.Context, merchantID uuid.UUID) ([]Coupon, error) {
-	rows, err := q.db.Query(ctx, listCouponsByMerchant, merchantID)
+type ListCouponsByMerchantParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+func (q *Queries) ListCouponsByMerchant(ctx context.Context, arg ListCouponsByMerchantParams) ([]Coupon, error) {
+	rows, err := q.db.Query(ctx, listCouponsByMerchant, arg.MerchantID, arg.Mode)
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +114,7 @@ func (q *Queries) ListCouponsByMerchant(ctx context.Context, merchantID uuid.UUI
 			&i.Redemptions,
 			&i.ExpiresAt,
 			&i.CreatedAt,
+			&i.Mode,
 		); err != nil {
 			return nil, err
 		}

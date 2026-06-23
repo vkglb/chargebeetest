@@ -1,7 +1,7 @@
 -- name: CreateCheckoutSession :one
 INSERT INTO checkout_sessions (
-    merchant_id, price_id, quantity, customer_email, success_url, cancel_url, expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    merchant_id, mode, price_id, quantity, customer_email, success_url, cancel_url, expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: GetCheckoutSession :one

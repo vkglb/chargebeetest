@@ -19,7 +19,7 @@ SET status = 'completed',
     subscription_id = $3,
     completed_at = now()
 WHERE id = $1
-RETURNING id, merchant_id, price_id, quantity, status, customer_email, success_url, cancel_url, customer_id, subscription_id, expires_at, completed_at, created_at
+RETURNING id, merchant_id, price_id, quantity, status, customer_email, success_url, cancel_url, customer_id, subscription_id, expires_at, completed_at, created_at, mode
 `
 
 type CompleteCheckoutSessionParams struct {
@@ -45,19 +45,21 @@ func (q *Queries) CompleteCheckoutSession(ctx context.Context, arg CompleteCheck
 		&i.ExpiresAt,
 		&i.CompletedAt,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const createCheckoutSession = `-- name: CreateCheckoutSession :one
 INSERT INTO checkout_sessions (
-    merchant_id, price_id, quantity, customer_email, success_url, cancel_url, expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, merchant_id, price_id, quantity, status, customer_email, success_url, cancel_url, customer_id, subscription_id, expires_at, completed_at, created_at
+    merchant_id, mode, price_id, quantity, customer_email, success_url, cancel_url, expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, merchant_id, price_id, quantity, status, customer_email, success_url, cancel_url, customer_id, subscription_id, expires_at, completed_at, created_at, mode
 `
 
 type CreateCheckoutSessionParams struct {
 	MerchantID    uuid.UUID          `json:"merchant_id"`
+	Mode          string             `json:"mode"`
 	PriceID       uuid.UUID          `json:"price_id"`
 	Quantity      int32              `json:"quantity"`
 	CustomerEmail pgtype.Text        `json:"customer_email"`
@@ -69,6 +71,7 @@ type CreateCheckoutSessionParams struct {
 func (q *Queries) CreateCheckoutSession(ctx context.Context, arg CreateCheckoutSessionParams) (CheckoutSession, error) {
 	row := q.db.QueryRow(ctx, createCheckoutSession,
 		arg.MerchantID,
+		arg.Mode,
 		arg.PriceID,
 		arg.Quantity,
 		arg.CustomerEmail,
@@ -91,12 +94,13 @@ func (q *Queries) CreateCheckoutSession(ctx context.Context, arg CreateCheckoutS
 		&i.ExpiresAt,
 		&i.CompletedAt,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const getCheckoutSession = `-- name: GetCheckoutSession :one
-SELECT id, merchant_id, price_id, quantity, status, customer_email, success_url, cancel_url, customer_id, subscription_id, expires_at, completed_at, created_at FROM checkout_sessions
+SELECT id, merchant_id, price_id, quantity, status, customer_email, success_url, cancel_url, customer_id, subscription_id, expires_at, completed_at, created_at, mode FROM checkout_sessions
 WHERE id = $1
 `
 
@@ -117,6 +121,7 @@ func (q *Queries) GetCheckoutSession(ctx context.Context, id uuid.UUID) (Checkou
 		&i.ExpiresAt,
 		&i.CompletedAt,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }

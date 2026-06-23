@@ -9,6 +9,7 @@ import (
 func (s *Server) handleListInvoices(w http.ResponseWriter, r *http.Request) {
 	invoices, err := s.q.ListInvoicesByMerchant(r.Context(), sqlc.ListInvoicesByMerchantParams{
 		MerchantID: merchantID(r),
+		Mode:       mode(r),
 		Limit:      200,
 		Offset:     0,
 	})
@@ -22,6 +23,7 @@ func (s *Server) handleListInvoices(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListTransactions(w http.ResponseWriter, r *http.Request) {
 	txns, err := s.q.ListTransactionsByMerchant(r.Context(), sqlc.ListTransactionsByMerchantParams{
 		MerchantID: merchantID(r),
+		Mode:       mode(r),
 		Limit:      200,
 		Offset:     0,
 	})

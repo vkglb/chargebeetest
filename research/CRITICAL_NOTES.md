@@ -43,7 +43,13 @@ Settle it with these fields:
 - `collection_method` → `charge_automatically` (Stripe bills) vs `send_invoice` (manual)?
 - `metadata` → any Chargebee keys?
 
-> ⏳ STATUS: tab confirmed FULL — still need to confirm WHO drives billing (case 1 / 2 / 3).
+> ✅ RESOLVED (2026-06-23): **Chargebee drives billing (case 2 / classic pure-gateway).**
+> A live `payment_succeeded` webhook shows `"source":"scheduled_job"` (Chargebee's clock fired
+> it) and `"id_at_gateway":"ch_…"` (a one-off Stripe **Charge**, not a Stripe `sub_`/invoice).
+> Chargebee generates the invoice and holds `next_billing_at`. Our DB stores the CB sub id +
+> Stripe `ch_`, never a `sub_`. → Cutting Chargebee stops all renewals; rebuild the scheduler.
+> Still verify the "full Subscriptions tab" claim (likely non-billing shells). See
+> [MIGRATION_QA.md](MIGRATION_QA.md) Q7.
 
 ---
 
@@ -87,8 +93,12 @@ stripe payment_methods list --customer cus_XXXX --type card
 | `default_source` (legacy) | — | set while `default_payment_method` is null → legacy storage |
 | PaymentMethod count vs subscriber count | roughly matches | gaps = customers with no usable saved card |
 
-> ⏳ STATUS: need one customer's `default_payment_method` value (a `pm_xxx`, or `null`?)
-> and whether cards appear as `pm_xxx` or legacy `card_xxx`.
+> ✅ RESOLVED (2026-06-23): confirmed **Case A — modern**. A live Chargebee customer shows
+> `Reference ID: cus_Uk2eaA4ezjdJOA / pm_1TkYZXBmKELKMmK2LKhUCdkv`, Gateway `Stripe` /
+> `Stripe-1`. Cards are `pm_xxx` PaymentMethods (not legacy `card_`/`src_`) → Trap A cleared.
+> Trap B (Stripe-side default PM) is moot — our charge path passes `pm_xxx` explicitly
+> (Path B). TODO: spot-check 2–3 oldest customers for legacy stragglers. See
+> [MIGRATION_QA.md](MIGRATION_QA.md) Q1.
 
 ---
 
@@ -105,7 +115,7 @@ capable, but **verify per region** — EU and India are the ones that bite.
 ## Decision gates (don't cut Chargebee until all ✅)
 
 - [ ] Confirmed WHO drives billing (Critical #1 → case 1 / 2 / 3).
-- [ ] Confirmed cards are `pm_xxx` (not legacy) and a default PM is set (Critical #2).
+- [x] Confirmed cards are `pm_xxx` (not legacy) — Critical #2 ✅ (default-PM moot on Path B).
 - [ ] Confirmed off-session/mandate works for the customer region (Critical #3).
 - [ ] Exported Chargebee subscription data (plan, qty, coupons, **next renewal date**).
 - [ ] Recreated schedule (native Stripe Subs or own scheduler) + verified timing (no double-charge).

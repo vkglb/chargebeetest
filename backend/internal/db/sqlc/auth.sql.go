@@ -50,7 +50,7 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 const createGatewayAccount = `-- name: CreateGatewayAccount :one
 INSERT INTO gateway_accounts (merchant_id, provider, account_ref, encrypted_credentials)
 VALUES ($1, $2, $3, $4)
-RETURNING id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at
+RETURNING id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at, mode
 `
 
 type CreateGatewayAccountParams struct {
@@ -76,6 +76,7 @@ func (q *Queries) CreateGatewayAccount(ctx context.Context, arg CreateGatewayAcc
 		&i.EncryptedCredentials,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }

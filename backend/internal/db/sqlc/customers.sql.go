@@ -13,13 +13,14 @@ import (
 )
 
 const createCustomer = `-- name: CreateCustomer :one
-INSERT INTO customers (merchant_id, email, name, gateway_customer_ref)
-VALUES ($1, $2, $3, $4)
-RETURNING id, merchant_id, email, name, gateway_customer_ref, metadata, created_at
+INSERT INTO customers (merchant_id, mode, email, name, gateway_customer_ref)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode
 `
 
 type CreateCustomerParams struct {
 	MerchantID         uuid.UUID   `json:"merchant_id"`
+	Mode               string      `json:"mode"`
 	Email              string      `json:"email"`
 	Name               pgtype.Text `json:"name"`
 	GatewayCustomerRef pgtype.Text `json:"gateway_customer_ref"`
@@ -28,6 +29,7 @@ type CreateCustomerParams struct {
 func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error) {
 	row := q.db.QueryRow(ctx, createCustomer,
 		arg.MerchantID,
+		arg.Mode,
 		arg.Email,
 		arg.Name,
 		arg.GatewayCustomerRef,
@@ -41,19 +43,21 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		&i.GatewayCustomerRef,
 		&i.Metadata,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const createPaymentMethod = `-- name: CreatePaymentMethod :one
 INSERT INTO payment_methods (
-    merchant_id, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, merchant_id, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default, created_at
+    merchant_id, mode, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, merchant_id, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default, created_at, mode
 `
 
 type CreatePaymentMethodParams struct {
 	MerchantID   uuid.UUID   `json:"merchant_id"`
+	Mode         string      `json:"mode"`
 	CustomerID   uuid.UUID   `json:"customer_id"`
 	GatewayPmRef string      `json:"gateway_pm_ref"`
 	Brand        pgtype.Text `json:"brand"`
@@ -66,6 +70,7 @@ type CreatePaymentMethodParams struct {
 func (q *Queries) CreatePaymentMethod(ctx context.Context, arg CreatePaymentMethodParams) (PaymentMethod, error) {
 	row := q.db.QueryRow(ctx, createPaymentMethod,
 		arg.MerchantID,
+		arg.Mode,
 		arg.CustomerID,
 		arg.GatewayPmRef,
 		arg.Brand,
@@ -86,12 +91,13 @@ func (q *Queries) CreatePaymentMethod(ctx context.Context, arg CreatePaymentMeth
 		&i.ExpYear,
 		&i.IsDefault,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const getCustomer = `-- name: GetCustomer :one
-SELECT id, merchant_id, email, name, gateway_customer_ref, metadata, created_at FROM customers
+SELECT id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode FROM customers
 WHERE id = $1 AND merchant_id = $2
 `
 
@@ -111,12 +117,13 @@ func (q *Queries) GetCustomer(ctx context.Context, arg GetCustomerParams) (Custo
 		&i.GatewayCustomerRef,
 		&i.Metadata,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const getDefaultPaymentMethod = `-- name: GetDefaultPaymentMethod :one
-SELECT id, merchant_id, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default, created_at FROM payment_methods
+SELECT id, merchant_id, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default, created_at, mode FROM payment_methods
 WHERE customer_id = $1 AND is_default = true
 LIMIT 1
 `
@@ -135,12 +142,13 @@ func (q *Queries) GetDefaultPaymentMethod(ctx context.Context, customerID uuid.U
 		&i.ExpYear,
 		&i.IsDefault,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const getPaymentMethod = `-- name: GetPaymentMethod :one
-SELECT id, merchant_id, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default, created_at FROM payment_methods
+SELECT id, merchant_id, customer_id, gateway_pm_ref, brand, last4, exp_month, exp_year, is_default, created_at, mode FROM payment_methods
 WHERE id = $1
 `
 
@@ -158,25 +166,32 @@ func (q *Queries) GetPaymentMethod(ctx context.Context, id uuid.UUID) (PaymentMe
 		&i.ExpYear,
 		&i.IsDefault,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const listCustomersByMerchant = `-- name: ListCustomersByMerchant :many
-SELECT id, merchant_id, email, name, gateway_customer_ref, metadata, created_at FROM customers
-WHERE merchant_id = $1
+SELECT id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode FROM customers
+WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+LIMIT $3 OFFSET $4
 `
 
 type ListCustomersByMerchantParams struct {
 	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
 	Limit      int32     `json:"limit"`
 	Offset     int32     `json:"offset"`
 }
 
 func (q *Queries) ListCustomersByMerchant(ctx context.Context, arg ListCustomersByMerchantParams) ([]Customer, error) {
-	rows, err := q.db.Query(ctx, listCustomersByMerchant, arg.MerchantID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listCustomersByMerchant,
+		arg.MerchantID,
+		arg.Mode,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -192,6 +207,7 @@ func (q *Queries) ListCustomersByMerchant(ctx context.Context, arg ListCustomers
 			&i.GatewayCustomerRef,
 			&i.Metadata,
 			&i.CreatedAt,
+			&i.Mode,
 		); err != nil {
 			return nil, err
 		}
@@ -207,7 +223,7 @@ const setCustomerGatewayRef = `-- name: SetCustomerGatewayRef :one
 UPDATE customers
 SET gateway_customer_ref = $2
 WHERE id = $1
-RETURNING id, merchant_id, email, name, gateway_customer_ref, metadata, created_at
+RETURNING id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode
 `
 
 type SetCustomerGatewayRefParams struct {
@@ -226,6 +242,7 @@ func (q *Queries) SetCustomerGatewayRef(ctx context.Context, arg SetCustomerGate
 		&i.GatewayCustomerRef,
 		&i.Metadata,
 		&i.CreatedAt,
+		&i.Mode,
 	)
 	return i, err
 }

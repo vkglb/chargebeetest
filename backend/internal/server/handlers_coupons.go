@@ -25,6 +25,7 @@ func (s *Server) handleCreateCoupon(w http.ResponseWriter, r *http.Request) {
 	}
 	coupon, err := s.q.CreateCoupon(r.Context(), sqlc.CreateCouponParams{
 		MerchantID:     merchantID(r),
+		Mode:           mode(r),
 		Code:           req.Code,
 		DiscountType:   req.DiscountType,
 		Value:          req.Value,
@@ -39,7 +40,10 @@ func (s *Server) handleCreateCoupon(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListCoupons(w http.ResponseWriter, r *http.Request) {
-	coupons, err := s.q.ListCouponsByMerchant(r.Context(), merchantID(r))
+	coupons, err := s.q.ListCouponsByMerchant(r.Context(), sqlc.ListCouponsByMerchantParams{
+		MerchantID: merchantID(r),
+		Mode:       mode(r),
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not list coupons")
 		return
