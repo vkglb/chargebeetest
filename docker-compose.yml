@@ -1,3 +1,6 @@
+# Full stack for any Docker host. Values come from a root .env (optional) via
+# ${VAR:-default} interpolation, so `docker compose up --build` works out of the
+# box and is easy to override per environment.
 services:
   postgres:
     image: postgres:15-alpine
@@ -15,6 +18,27 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  api:
+    build: ./backend
+    container_name: chargeebee_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Inside the compose network, Postgres is reachable at host "postgres".
+      DATABASE_URL: postgres://chargeebee:chargeebee@postgres:5432/chargeebee?sslmode=disable
+      AUTO_MIGRATE: "true"
+      PORT: "8080"
+      APP_ENV: ${APP_ENV:-production}
+      JWT_SECRET: ${JWT_SECRET:-dev-insecure-secret-change-me}
+      CHECKOUT_BASE_URL: ${CHECKOUT_BASE_URL:-http://localhost:5173}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+    ports:
+      - "8080:8080"
 
 volumes:
   chargeebee_pgdata:
