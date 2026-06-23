@@ -62,7 +62,31 @@ Render → **New → Static Site** → same repo:
 
 ---
 
+## Running migrations from containers
+
+Three ways, all using the **same embedded SQL** — pick what fits the host:
+
+1. **App self-migrates** (simplest, used on Render): set `AUTO_MIGRATE=true` on the
+   API service. It runs `goose up` on every boot (idempotent).
+
+2. **Dedicated migrate container** (Docker Compose): a one-shot `migrate` service
+   runs migrations, then the `api` waits for it to finish before starting.
+   ```bash
+   docker compose up --build              # postgres → migrate (runs) → api
+   docker compose run --rm migrate up     # apply migrations on demand
+   docker compose run --rm migrate status # show status
+   docker compose run --rm migrate down   # roll back the last one
+   ```
+   The image builds two binaries: `/app` (server) and `/migrate` (runner).
+
+3. **Run the migrate binary directly** in any container:
+   ```bash
+   docker run --rm -e DATABASE_URL=... --entrypoint /migrate chargeebee-backend up
+   ```
+
+On Render's **Docker** runtime you can also set a **Pre-Deploy Command** of
+`/migrate up`; on Render's **native Go** runtime keep `AUTO_MIGRATE=true`.
+
 ## Notes
 - **Free tier**: the API spins down when idle (first request after is slow), and free Postgres expires after ~30 days — fine for testing.
-- **Migrations**: with `AUTO_MIGRATE=true` the API runs `goose up` on startup. To run them manually instead, use `go run ./cmd/migrate up` (see [backend/README.md](backend/README.md)).
 - **Guest/demo mode** in the dashboard works with no backend at all — useful to verify the static deploy independently.

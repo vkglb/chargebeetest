@@ -19,16 +19,35 @@ services:
       timeout: 5s
       retries: 5
 
+  # One-shot migration runner. Runs `migrate up` then exits.
+  #   docker compose run --rm migrate          # apply all migrations
+  #   docker compose run --rm migrate status   # show status
+  #   docker compose run --rm migrate down     # roll back last
+  migrate:
+    image: chargeebee-backend
+    build: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/migrate"]
+    command: ["up"]
+    environment:
+      DATABASE_URL: postgres://chargeebee:chargeebee@postgres:5432/chargeebee?sslmode=disable
+    restart: "no"
+
   api:
+    image: chargeebee-backend
     build: ./backend
     container_name: chargeebee_api
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       # Inside the compose network, Postgres is reachable at host "postgres".
       DATABASE_URL: postgres://chargeebee:chargeebee@postgres:5432/chargeebee?sslmode=disable
-      AUTO_MIGRATE: "true"
+      AUTO_MIGRATE: "false" # the migrate service already applied them
       PORT: "8080"
       APP_ENV: ${APP_ENV:-production}
       JWT_SECRET: ${JWT_SECRET:-dev-insecure-secret-change-me}
