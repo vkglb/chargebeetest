@@ -19,6 +19,7 @@ type Querier interface {
 	CountCustomers(ctx context.Context, arg CountCustomersParams) (int64, error)
 	// Total customers that existed at a point in time (a stock metric).
 	CountCustomersAsOf(ctx context.Context, arg CountCustomersAsOfParams) (int64, error)
+	CountMerchantsBySubdomain(ctx context.Context, subdomain string) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateCheckoutSession(ctx context.Context, arg CreateCheckoutSessionParams) (CheckoutSession, error)
 	CreateCoupon(ctx context.Context, arg CreateCouponParams) (Coupon, error)
@@ -27,7 +28,7 @@ type Querier interface {
 	CreateGatewayAccount(ctx context.Context, arg CreateGatewayAccountParams) (GatewayAccount, error)
 	CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (Invoice, error)
 	CreateInvoiceLineItem(ctx context.Context, arg CreateInvoiceLineItemParams) (InvoiceLineItem, error)
-	CreateMerchant(ctx context.Context, name string) (Merchant, error)
+	CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error)
 	CreateMerchantUser(ctx context.Context, arg CreateMerchantUserParams) (MerchantUser, error)
 	CreatePaymentMethod(ctx context.Context, arg CreatePaymentMethodParams) (PaymentMethod, error)
 	CreatePrice(ctx context.Context, arg CreatePriceParams) (Price, error)

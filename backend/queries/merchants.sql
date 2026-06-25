@@ -1,7 +1,11 @@
 -- name: CreateMerchant :one
-INSERT INTO merchants (name)
-VALUES ($1)
+INSERT INTO merchants (name, subdomain, owner_name)
+VALUES ($1, $2, $3)
 RETURNING *;
+
+-- name: CountMerchantsBySubdomain :one
+SELECT COUNT(*)::bigint AS count
+FROM merchants WHERE subdomain = $1;
 
 -- name: GetMerchant :one
 SELECT * FROM merchants

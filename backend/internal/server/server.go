@@ -86,6 +86,7 @@ func (s *Server) routes() {
 
 		// Public: merchant onboarding + login.
 		r.Post("/signup", s.handleSignup)
+		r.Get("/signup/check-subdomain", s.handleCheckSubdomain)
 		r.Post("/login", s.handleLogin)
 
 		// Live updates (WebSocket). Auth via ?token= query param since browsers

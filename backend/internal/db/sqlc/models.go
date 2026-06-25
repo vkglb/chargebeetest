@@ -130,6 +130,8 @@ type Merchant struct {
 	Status    string             `json:"status"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Subdomain string             `json:"subdomain"`
+	OwnerName string             `json:"owner_name"`
 }
 
 type MerchantUser struct {

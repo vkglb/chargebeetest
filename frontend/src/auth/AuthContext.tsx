@@ -6,7 +6,12 @@ interface AuthState {
   isAuthenticated: boolean;
   isGuest: boolean;
   merchantId: string | null;
-  signup: (merchantName: string, email: string, password: string) => Promise<void>;
+  signup: (
+    subdomain: string,
+    ownerName: string,
+    email: string,
+    password: string,
+  ) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   loginAsGuest: () => void;
   logout: () => void;
@@ -27,9 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMerchantId(res.merchant_id);
   }
 
-  async function signup(merchantName: string, email: string, password: string) {
+  async function signup(subdomain: string, ownerName: string, email: string, password: string) {
     const res = await api.post<AuthResponse>("/v1/signup", {
-      merchant_name: merchantName,
+      subdomain,
+      owner_name: ownerName,
       email,
       password,
     });

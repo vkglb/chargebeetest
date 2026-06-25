@@ -57,6 +57,40 @@ h1, h2, h3 { letter-spacing: -0.02em; font-weight: 650; }
   color: var(--accent);
   font-size: 12px;
 }
+/* Subdomain input with inline suffix + availability state */
+.subdomain-field {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.subdomain-field input {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  flex: 1;
+}
+.subdomain-field input:focus { outline: none; }
+.subdomain-field .subdomain-suffix {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 1px solid var(--border);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.subdomain-field:focus-within { border-color: var(--accent); }
+.subdomain-field.available { border-color: var(--green); }
+.subdomain-field.taken,
+.subdomain-field.invalid { border-color: var(--red); }
+.subdomain-hint { font-size: 12px; margin: 6px 0 2px; min-height: 16px; }
+.subdomain-hint .ok { color: var(--green); }
+.subdomain-hint .bad { color: var(--red); }
+.subdomain-hint .muted { color: var(--muted); }
 
 /* ── Forms ────────────────────────────────────────────────── */
 label { display: block; margin: 12px 0 6px; color: var(--muted); font-size: 13px; }

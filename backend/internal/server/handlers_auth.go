@@ -3,6 +3,8 @@ package server
 import (
 	"errors"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -11,16 +13,40 @@ import (
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 )
 
+// Subdomains: 3–40 chars, lowercase letters/digits/hyphens, not at the edges.
+var subdomainRe = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$`)
+
+func validSubdomain(s string) bool {
+	return subdomainRe.MatchString(s)
+}
+
 type signupRequest struct {
-	MerchantName string `json:"merchant_name"`
-	Email        string `json:"email"`
-	Password     string `json:"password"`
+	Subdomain string `json:"subdomain"`
+	OwnerName string `json:"owner_name"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
 }
 
 type authResponse struct {
 	Token      string `json:"token"`
 	MerchantID string `json:"merchant_id"`
 	UserID     string `json:"user_id"`
+}
+
+// handleCheckSubdomain reports whether a subdomain is valid and unused, for the
+// live availability check on the signup form.
+func (s *Server) handleCheckSubdomain(w http.ResponseWriter, r *http.Request) {
+	sub := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("subdomain")))
+	if !validSubdomain(sub) {
+		writeJSON(w, http.StatusOK, map[string]any{"subdomain": sub, "available": false, "reason": "invalid"})
+		return
+	}
+	n, err := s.q.CountMerchantsBySubdomain(r.Context(), sub)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not check subdomain")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"subdomain": sub, "available": n == 0})
 }
 
 // handleSignup creates a merchant, its first admin user, and returns a JWT.
@@ -30,16 +56,40 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.MerchantName == "" || req.Email == "" || len(req.Password) < 8 {
-		writeError(w, http.StatusBadRequest, "merchant_name, email and password (min 8 chars) required")
+	req.Subdomain = strings.ToLower(strings.TrimSpace(req.Subdomain))
+	req.OwnerName = strings.TrimSpace(req.OwnerName)
+	if req.Email == "" || len(req.Password) < 8 {
+		writeError(w, http.StatusBadRequest, "email and password (min 8 chars) required")
+		return
+	}
+	if !validSubdomain(req.Subdomain) {
+		writeError(w, http.StatusBadRequest, "subdomain must be 3–40 chars: lowercase letters, digits, hyphens")
+		return
+	}
+	if req.OwnerName == "" {
+		writeError(w, http.StatusBadRequest, "owner_name required")
 		return
 	}
 
 	ctx := r.Context()
-	merchant, err := s.q.CreateMerchant(ctx, req.MerchantName)
+	taken, err := s.q.CountMerchantsBySubdomain(ctx, req.Subdomain)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not validate subdomain")
+		return
+	}
+	if taken > 0 {
+		writeError(w, http.StatusConflict, "that subdomain is already taken")
+		return
+	}
+
+	merchant, err := s.q.CreateMerchant(ctx, sqlc.CreateMerchantParams{
+		Name:      req.Subdomain,
+		Subdomain: req.Subdomain,
+		OwnerName: req.OwnerName,
+	})
 	if err != nil {
 		s.logger.Error("signup: create merchant", "error", err)
-		writeError(w, http.StatusInternalServerError, "could not create merchant")
+		writeError(w, http.StatusConflict, "could not create merchant (subdomain may be taken)")
 		return
 	}
 

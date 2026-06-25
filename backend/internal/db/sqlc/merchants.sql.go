@@ -11,14 +11,32 @@ import (
 	"github.com/google/uuid"
 )
 
-const createMerchant = `-- name: CreateMerchant :one
-INSERT INTO merchants (name)
-VALUES ($1)
-RETURNING id, name, status, created_at, updated_at
+const countMerchantsBySubdomain = `-- name: CountMerchantsBySubdomain :one
+SELECT COUNT(*)::bigint AS count
+FROM merchants WHERE subdomain = $1
 `
 
-func (q *Queries) CreateMerchant(ctx context.Context, name string) (Merchant, error) {
-	row := q.db.QueryRow(ctx, createMerchant, name)
+func (q *Queries) CountMerchantsBySubdomain(ctx context.Context, subdomain string) (int64, error) {
+	row := q.db.QueryRow(ctx, countMerchantsBySubdomain, subdomain)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createMerchant = `-- name: CreateMerchant :one
+INSERT INTO merchants (name, subdomain, owner_name)
+VALUES ($1, $2, $3)
+RETURNING id, name, status, created_at, updated_at, subdomain, owner_name
+`
+
+type CreateMerchantParams struct {
+	Name      string `json:"name"`
+	Subdomain string `json:"subdomain"`
+	OwnerName string `json:"owner_name"`
+}
+
+func (q *Queries) CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error) {
+	row := q.db.QueryRow(ctx, createMerchant, arg.Name, arg.Subdomain, arg.OwnerName)
 	var i Merchant
 	err := row.Scan(
 		&i.ID,
@@ -26,12 +44,14 @@ func (q *Queries) CreateMerchant(ctx context.Context, name string) (Merchant, er
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subdomain,
+		&i.OwnerName,
 	)
 	return i, err
 }
 
 const getMerchant = `-- name: GetMerchant :one
-SELECT id, name, status, created_at, updated_at FROM merchants
+SELECT id, name, status, created_at, updated_at, subdomain, owner_name FROM merchants
 WHERE id = $1
 `
 
@@ -44,12 +64,14 @@ func (q *Queries) GetMerchant(ctx context.Context, id uuid.UUID) (Merchant, erro
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subdomain,
+		&i.OwnerName,
 	)
 	return i, err
 }
 
 const listMerchants = `-- name: ListMerchants :many
-SELECT id, name, status, created_at, updated_at FROM merchants
+SELECT id, name, status, created_at, updated_at, subdomain, owner_name FROM merchants
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -74,6 +96,8 @@ func (q *Queries) ListMerchants(ctx context.Context, arg ListMerchantsParams) ([
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Subdomain,
+			&i.OwnerName,
 		); err != nil {
 			return nil, err
 		}
@@ -89,7 +113,7 @@ const updateMerchantStatus = `-- name: UpdateMerchantStatus :one
 UPDATE merchants
 SET status = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, name, status, created_at, updated_at
+RETURNING id, name, status, created_at, updated_at, subdomain, owner_name
 `
 
 type UpdateMerchantStatusParams struct {
@@ -106,6 +130,8 @@ func (q *Queries) UpdateMerchantStatus(ctx context.Context, arg UpdateMerchantSt
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subdomain,
+		&i.OwnerName,
 	)
 	return i, err
 }
