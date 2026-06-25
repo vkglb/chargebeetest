@@ -263,6 +263,7 @@ export default function Subscriptions() {
                 <th>Plan</th>
                 <th>Status</th>
                 <th>Qty</th>
+                <th>Started</th>
                 <th>Next billing</th>
                 <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
@@ -278,6 +279,7 @@ export default function Subscriptions() {
                       <span className={`badge ${s.status}`}>{s.status}</span>
                     </td>
                     <td>{s.quantity}</td>
+                    <td>{formatDateTimeShort(s.created_at)}</td>
                     <td>{formatDateTimeShort(s.next_billing_at)}</td>
                     <td style={{ textAlign: "right" }}>
                       {cancelId === s.id ? (

@@ -196,6 +196,7 @@ export default function CustomerDetail() {
                             ? `Cancelled — ${cancelReasonLabel(s.cancel_reason)}`
                             : meta.reason}
                         </div>
+                        <div className="sub-reason">Started {formatDateTimeShort(s.created_at)}</div>
                       </div>
                       <div className="sub-meta">
                         <span className={`badge ${meta.cls}`}>{meta.label}</span>
