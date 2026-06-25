@@ -428,6 +428,10 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
     case "GET /v1/webhooks":
       return db.webhooks as T;
     case "POST /v1/webhooks": {
+      const dupUrl = (body.url || "").trim().toLowerCase();
+      if (db.webhooks.some((w) => w.url.trim().toLowerCase() === dupUrl)) {
+        throw new Error("this URL is already added as a webhook");
+      }
       const ep: WebhookEndpoint = {
         id: uuid(),
         url: body.url,

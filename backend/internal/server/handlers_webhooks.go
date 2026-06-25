@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -22,8 +23,25 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "url required")
 		return
 	}
+	req.URL = strings.TrimSpace(req.URL)
 	if len(req.Events) == 0 {
 		req.Events = []string{"*"}
+	}
+
+	// Reject a URL that's already registered for this merchant + mode.
+	existing, err := s.q.ListWebhookEndpoints(r.Context(), sqlc.ListWebhookEndpointsParams{
+		MerchantID: merchantID(r),
+		Mode:       mode(r),
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not check existing webhooks")
+		return
+	}
+	for _, ep := range existing {
+		if strings.EqualFold(strings.TrimSpace(ep.Url), req.URL) {
+			writeError(w, http.StatusConflict, "this URL is already added as a webhook")
+			return
+		}
 	}
 
 	secret := "whsec_" + randomHex(24)
