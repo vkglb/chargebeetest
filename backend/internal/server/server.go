@@ -98,6 +98,7 @@ func (s *Server) routes() {
 
 			r.Get("/sites", s.handleListSites)
 			r.Get("/analytics", s.handleAnalytics)
+			r.Post("/dev/seed", s.handleSeed)
 
 			r.Post("/products", s.handleCreateProduct)
 			r.Get("/products", s.handleListProducts)

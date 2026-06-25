@@ -67,6 +67,8 @@ type Querier interface {
 	MarkInvoiceStatus(ctx context.Context, arg MarkInvoiceStatusParams) (Invoice, error)
 	RevenueByDay(ctx context.Context, arg RevenueByDayParams) ([]RevenueByDayRow, error)
 	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error
+	// Insert a backdated transaction (used by the dev seeder to populate charts).
+	SeedTransaction(ctx context.Context, arg SeedTransactionParams) error
 	SetCustomerGatewayRef(ctx context.Context, arg SetCustomerGatewayRefParams) (Customer, error)
 	SetSubscriptionStatus(ctx context.Context, arg SetSubscriptionStatusParams) (Subscription, error)
 	SubscriptionStatusBreakdown(ctx context.Context, arg SubscriptionStatusBreakdownParams) ([]SubscriptionStatusBreakdownRow, error)

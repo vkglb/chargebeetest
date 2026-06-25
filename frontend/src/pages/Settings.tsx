@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { resetTour } from "../components/Tour";
+import { api, getMode } from "../api/client";
 
 // Settings persist locally in demo mode. In real mode these map to backend
 // merchant settings (dunning schedule, tax, business profile) — wired later.
@@ -34,6 +35,20 @@ export default function Settings() {
   const { merchantId } = useAuth();
   const [s, setS] = useState<SettingsState>(loadSettings());
   const [saved, setSaved] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState("");
+
+  async function loadSample() {
+    setSeeding(true);
+    setSeedError("");
+    try {
+      await api.post("/v1/dev/seed");
+      window.location.href = "/analytics";
+    } catch (e) {
+      setSeedError((e as Error).message);
+      setSeeding(false);
+    }
+  }
 
   function update<K extends keyof SettingsState>(key: K, value: SettingsState[K]) {
     setS((prev) => ({ ...prev, [key]: value }));
@@ -101,6 +116,18 @@ export default function Settings() {
             </select>
           </div>
         </div>
+      </div>
+
+      <div className="panel">
+        <h3>Sample data</h3>
+        <p style={{ color: "var(--muted)", marginTop: 0 }}>
+          Populate <strong>{getMode()}</strong> mode with demo products, plans, customers,
+          subscriptions and 30 days of transactions — so you can explore the dashboard and charts.
+        </p>
+        <button className="btn btn-sm" disabled={seeding} onClick={loadSample}>
+          {seeding ? "Loading…" : "Load sample data"}
+        </button>
+        {seedError && <div className="error">{seedError}</div>}
       </div>
 
       <div className="panel">

@@ -311,6 +311,12 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
     case "GET /v1/sites":
       return [{ id: "demo-merchant-0000", name: "Demo Business", status: "active" }] as T;
 
+    case "POST /v1/dev/seed": {
+      // Re-seed the current mode's dataset with sample data.
+      save(seed());
+      return { status: "seeded" } as T;
+    }
+
     case "GET /v1/analytics": {
       const statusMap: Record<string, number> = {};
       db.subscriptions.forEach((s) => (statusMap[s.status] = (statusMap[s.status] || 0) + 1));
