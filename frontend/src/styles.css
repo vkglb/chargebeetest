@@ -252,6 +252,21 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .stat .label { color: var(--muted); font-size: 13px; }
 .stat .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
 
+/* Period-over-period delta indicator */
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+.delta.up { color: var(--green); }
+.delta.down { color: var(--red); }
+.delta.flat { color: var(--muted); }
+.delta .delta-cap { color: var(--muted); font-weight: 400; font-size: 11.5px; }
+td .delta { margin-top: 0; }
+
 /* ── Charts ───────────────────────────────────────────────── */
 .chart-row { display: flex; gap: 20px; }
 .chart-row > .panel { margin-bottom: 20px; min-width: 0; }

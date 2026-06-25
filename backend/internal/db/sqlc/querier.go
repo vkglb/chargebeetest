@@ -14,7 +14,11 @@ type Querier interface {
 	AdvanceSubscriptionPeriod(ctx context.Context, arg AdvanceSubscriptionPeriodParams) (Subscription, error)
 	AnalyticsMRR(ctx context.Context, arg AnalyticsMRRParams) (int64, error)
 	CompleteCheckoutSession(ctx context.Context, arg CompleteCheckoutSessionParams) (CheckoutSession, error)
+	// Active/trialing subscriptions that existed at a point in time.
+	CountActiveSubscriptionsAsOf(ctx context.Context, arg CountActiveSubscriptionsAsOfParams) (int64, error)
 	CountCustomers(ctx context.Context, arg CountCustomersParams) (int64, error)
+	// Total customers that existed at a point in time (a stock metric).
+	CountCustomersAsOf(ctx context.Context, arg CountCustomersAsOfParams) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateCheckoutSession(ctx context.Context, arg CreateCheckoutSessionParams) (CheckoutSession, error)
 	CreateCoupon(ctx context.Context, arg CreateCouponParams) (Coupon, error)
@@ -63,8 +67,15 @@ type Querier interface {
 	ListTransactionsByMerchant(ctx context.Context, arg ListTransactionsByMerchantParams) ([]Transaction, error)
 	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]WebhookDelivery, error)
 	ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpointsParams) ([]WebhookEndpoint, error)
+	// Recurring revenue from active/trialing subscriptions that existed at a cutoff.
+	MRRAsOf(ctx context.Context, arg MRRAsOfParams) (int64, error)
 	MarkInvoicePaid(ctx context.Context, id uuid.UUID) (Invoice, error)
 	MarkInvoiceStatus(ctx context.Context, arg MarkInvoiceStatusParams) (Invoice, error)
+	// Per-product current MRR vs MRR as of `cutoff` ($3), for growth arrows.
+	ProductMRRBreakdown(ctx context.Context, arg ProductMRRBreakdownParams) ([]ProductMRRBreakdownRow, error)
+	// ── Period-over-period comparison helpers ──────────────────────────
+	// Succeeded revenue inside a [start, end) window (a flow metric).
+	RevenueBetween(ctx context.Context, arg RevenueBetweenParams) (int64, error)
 	RevenueByDay(ctx context.Context, arg RevenueByDayParams) ([]RevenueByDayRow, error)
 	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error
 	// Insert a backdated transaction (used by the dev seeder to populate charts).

@@ -75,11 +75,11 @@ export default function Customers() {
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
           </div>
           <div>
-            <label>Stripe customer (optional)</label>
+            <label>Gateway reference (optional)</label>
             <input
               value={gatewayRef}
               onChange={(e) => setGatewayRef(e.target.value)}
-              placeholder="cus_..."
+              placeholder="e.g. cus_… / pay_…"
             />
           </div>
           <div style={{ flex: "0 0 auto" }}>
@@ -108,7 +108,7 @@ export default function Customers() {
               <tr>
                 <th>Email</th>
                 <th>Name</th>
-                <th>Stripe ref</th>
+                <th>Reference</th>
                 <th>Joined</th>
               </tr>
             </thead>

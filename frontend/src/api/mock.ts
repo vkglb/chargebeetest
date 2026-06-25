@@ -320,21 +320,32 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
     case "GET /v1/analytics": {
       const statusMap: Record<string, number> = {};
       db.subscriptions.forEach((s) => (statusMap[s.status] = (statusMap[s.status] || 0) + 1));
+      const monthlyOf = (priceId: string) => {
+        const p = db.prices.find((x) => x.id === priceId);
+        if (!p) return 0;
+        return p.interval_unit === "year"
+          ? p.amount_minor / 12
+          : p.interval_unit === "week"
+            ? p.amount_minor * 4
+            : p.interval_unit === "day"
+              ? p.amount_minor * 30
+              : p.amount_minor;
+      };
       let mrr = 0;
+      // Per-product MRR + active count for the breakdown table.
+      const byProduct: Record<string, { name: string; mrr: number; subs: number }> = {};
       db.subscriptions
         .filter((s) => s.status === "active" || s.status === "trialing")
         .forEach((s) => {
           const p = db.prices.find((x) => x.id === s.price_id);
           if (!p) return;
-          const monthly =
-            p.interval_unit === "year"
-              ? p.amount_minor / 12
-              : p.interval_unit === "week"
-                ? p.amount_minor * 4
-                : p.interval_unit === "day"
-                  ? p.amount_minor * 30
-                  : p.amount_minor;
-          mrr += monthly * s.quantity;
+          const m = monthlyOf(s.price_id) * s.quantity;
+          mrr += m;
+          const prod = db.products.find((x) => x.id === p.product_id);
+          const key = p.product_id;
+          if (!byProduct[key]) byProduct[key] = { name: prod?.name ?? "Product", mrr: 0, subs: 0 };
+          byProduct[key].mrr += m;
+          byProduct[key].subs += 1;
         });
       // Synthesized 30-day series so the demo charts look alive.
       const revenue_by_day: { day: string; value: number }[] = [];
@@ -345,14 +356,30 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         subscriptions_by_day.push({ day, value: Math.round(Math.random() * 3) });
       }
       const total = revenue_by_day.reduce((a, b) => a + b.value, 0);
+      const activeSubs = statusMap["active"] || 0;
+      const customers = db.customers.length;
       return {
         summary: {
-          customers: db.customers.length,
-          active_subscriptions: statusMap["active"] || 0,
+          customers,
+          active_subscriptions: activeSubs,
           total_subscriptions: db.subscriptions.length,
           total_revenue_minor: total,
           mrr_minor: Math.round(mrr),
         },
+        // Demo deltas: prior period synthesized a bit lower so growth is visible.
+        deltas: {
+          revenue: { current: total, previous: Math.round(total * 0.88) },
+          mrr: { current: Math.round(mrr), previous: Math.round(mrr * 0.85) },
+          customers: { current: customers, previous: Math.max(0, customers - 1) },
+          active_subscriptions: { current: activeSubs, previous: Math.max(0, activeSubs - 1) },
+        },
+        products: Object.entries(byProduct).map(([product_id, v]) => ({
+          product_id,
+          name: v.name,
+          active_subscriptions: v.subs,
+          mrr_minor: Math.round(v.mrr),
+          prev_mrr_minor: Math.round(v.mrr * 0.82),
+        })),
         revenue_by_day,
         subscriptions_by_day,
         status_breakdown: Object.entries(statusMap).map(([status, count]) => ({ status, count })),

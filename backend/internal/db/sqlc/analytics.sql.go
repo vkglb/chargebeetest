@@ -38,6 +38,27 @@ func (q *Queries) AnalyticsMRR(ctx context.Context, arg AnalyticsMRRParams) (int
 	return mrr_minor, err
 }
 
+const countActiveSubscriptionsAsOf = `-- name: CountActiveSubscriptionsAsOf :one
+SELECT COUNT(*)::bigint AS count
+FROM subscriptions
+WHERE merchant_id = $1 AND mode = $2
+  AND status IN ('active', 'trialing') AND created_at <= $3
+`
+
+type CountActiveSubscriptionsAsOfParams struct {
+	MerchantID uuid.UUID          `json:"merchant_id"`
+	Mode       string             `json:"mode"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+// Active/trialing subscriptions that existed at a point in time.
+func (q *Queries) CountActiveSubscriptionsAsOf(ctx context.Context, arg CountActiveSubscriptionsAsOfParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveSubscriptionsAsOf, arg.MerchantID, arg.Mode, arg.CreatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countCustomers = `-- name: CountCustomers :one
 SELECT COUNT(*)::bigint AS count
 FROM customers WHERE merchant_id = $1 AND mode = $2
@@ -53,6 +74,157 @@ func (q *Queries) CountCustomers(ctx context.Context, arg CountCustomersParams) 
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countCustomersAsOf = `-- name: CountCustomersAsOf :one
+SELECT COUNT(*)::bigint AS count
+FROM customers
+WHERE merchant_id = $1 AND mode = $2 AND created_at <= $3
+`
+
+type CountCustomersAsOfParams struct {
+	MerchantID uuid.UUID          `json:"merchant_id"`
+	Mode       string             `json:"mode"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+// Total customers that existed at a point in time (a stock metric).
+func (q *Queries) CountCustomersAsOf(ctx context.Context, arg CountCustomersAsOfParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCustomersAsOf, arg.MerchantID, arg.Mode, arg.CreatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const mRRAsOf = `-- name: MRRAsOf :one
+SELECT COALESCE(SUM(
+  CASE p.interval_unit
+    WHEN 'day'   THEN p.amount_minor * 30 / GREATEST(p.interval_count, 1)
+    WHEN 'week'  THEN p.amount_minor * 4  / GREATEST(p.interval_count, 1)
+    WHEN 'month' THEN p.amount_minor      / GREATEST(p.interval_count, 1)
+    WHEN 'year'  THEN p.amount_minor      / (12 * GREATEST(p.interval_count, 1))
+    ELSE p.amount_minor
+  END * s.quantity), 0)::bigint AS mrr_minor
+FROM subscriptions s
+JOIN prices p ON p.id = s.price_id
+WHERE s.merchant_id = $1 AND s.mode = $2
+  AND s.status IN ('active', 'trialing') AND s.created_at <= $3
+`
+
+type MRRAsOfParams struct {
+	MerchantID uuid.UUID          `json:"merchant_id"`
+	Mode       string             `json:"mode"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+// Recurring revenue from active/trialing subscriptions that existed at a cutoff.
+func (q *Queries) MRRAsOf(ctx context.Context, arg MRRAsOfParams) (int64, error) {
+	row := q.db.QueryRow(ctx, mRRAsOf, arg.MerchantID, arg.Mode, arg.CreatedAt)
+	var mrr_minor int64
+	err := row.Scan(&mrr_minor)
+	return mrr_minor, err
+}
+
+const productMRRBreakdown = `-- name: ProductMRRBreakdown :many
+SELECT pr.id   AS product_id,
+       pr.name AS product_name,
+       COUNT(*) FILTER (WHERE s.status IN ('active', 'trialing'))::bigint AS active_subscriptions,
+       COALESCE(SUM(
+         CASE WHEN s.status IN ('active', 'trialing') THEN
+           CASE p.interval_unit
+             WHEN 'day'   THEN p.amount_minor * 30 / GREATEST(p.interval_count, 1)
+             WHEN 'week'  THEN p.amount_minor * 4  / GREATEST(p.interval_count, 1)
+             WHEN 'month' THEN p.amount_minor      / GREATEST(p.interval_count, 1)
+             WHEN 'year'  THEN p.amount_minor      / (12 * GREATEST(p.interval_count, 1))
+             ELSE p.amount_minor
+           END * s.quantity
+         ELSE 0 END), 0)::bigint AS mrr_minor,
+       COALESCE(SUM(
+         CASE WHEN s.status IN ('active', 'trialing') AND s.created_at <= $3 THEN
+           CASE p.interval_unit
+             WHEN 'day'   THEN p.amount_minor * 30 / GREATEST(p.interval_count, 1)
+             WHEN 'week'  THEN p.amount_minor * 4  / GREATEST(p.interval_count, 1)
+             WHEN 'month' THEN p.amount_minor      / GREATEST(p.interval_count, 1)
+             WHEN 'year'  THEN p.amount_minor      / (12 * GREATEST(p.interval_count, 1))
+             ELSE p.amount_minor
+           END * s.quantity
+         ELSE 0 END), 0)::bigint AS prev_mrr_minor
+FROM products pr
+JOIN prices p ON p.product_id = pr.id
+JOIN subscriptions s ON s.price_id = p.id
+WHERE pr.merchant_id = $1 AND pr.mode = $2
+GROUP BY pr.id, pr.name
+ORDER BY mrr_minor DESC
+`
+
+type ProductMRRBreakdownParams struct {
+	MerchantID uuid.UUID          `json:"merchant_id"`
+	Mode       string             `json:"mode"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type ProductMRRBreakdownRow struct {
+	ProductID           uuid.UUID `json:"product_id"`
+	ProductName         string    `json:"product_name"`
+	ActiveSubscriptions int64     `json:"active_subscriptions"`
+	MrrMinor            int64     `json:"mrr_minor"`
+	PrevMrrMinor        int64     `json:"prev_mrr_minor"`
+}
+
+// Per-product current MRR vs MRR as of `cutoff` ($3), for growth arrows.
+func (q *Queries) ProductMRRBreakdown(ctx context.Context, arg ProductMRRBreakdownParams) ([]ProductMRRBreakdownRow, error) {
+	rows, err := q.db.Query(ctx, productMRRBreakdown, arg.MerchantID, arg.Mode, arg.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ProductMRRBreakdownRow{}
+	for rows.Next() {
+		var i ProductMRRBreakdownRow
+		if err := rows.Scan(
+			&i.ProductID,
+			&i.ProductName,
+			&i.ActiveSubscriptions,
+			&i.MrrMinor,
+			&i.PrevMrrMinor,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const revenueBetween = `-- name: RevenueBetween :one
+
+SELECT COALESCE(SUM(amount_minor), 0)::bigint AS total
+FROM transactions
+WHERE merchant_id = $1 AND mode = $2 AND status = 'succeeded'
+  AND created_at >= $3 AND created_at < $4
+`
+
+type RevenueBetweenParams struct {
+	MerchantID  uuid.UUID          `json:"merchant_id"`
+	Mode        string             `json:"mode"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
+}
+
+// ── Period-over-period comparison helpers ──────────────────────────
+// Succeeded revenue inside a [start, end) window (a flow metric).
+func (q *Queries) RevenueBetween(ctx context.Context, arg RevenueBetweenParams) (int64, error) {
+	row := q.db.QueryRow(ctx, revenueBetween,
+		arg.MerchantID,
+		arg.Mode,
+		arg.CreatedAt,
+		arg.CreatedAt_2,
+	)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
 }
 
 const revenueByDay = `-- name: RevenueByDay :many

@@ -218,6 +218,17 @@ export interface SeriesPoint {
   day: string;
   value: number;
 }
+export interface MetricDelta {
+  current: number;
+  previous: number;
+}
+export interface ProductMetric {
+  product_id: string;
+  name: string;
+  active_subscriptions: number;
+  mrr_minor: number;
+  prev_mrr_minor: number;
+}
 export interface Analytics {
   summary: {
     customers: number;
@@ -226,6 +237,13 @@ export interface Analytics {
     total_revenue_minor: number;
     mrr_minor: number;
   };
+  deltas?: {
+    revenue: MetricDelta;
+    mrr: MetricDelta;
+    customers: MetricDelta;
+    active_subscriptions: MetricDelta;
+  };
+  products?: ProductMetric[];
   revenue_by_day: SeriesPoint[];
   subscriptions_by_day: SeriesPoint[];
   status_breakdown: { status: string; count: number }[];

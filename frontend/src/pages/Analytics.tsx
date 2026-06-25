@@ -13,7 +13,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { api, type Analytics as AnalyticsData } from "../api/client";
+import { api, type Analytics as AnalyticsData, type MetricDelta } from "../api/client";
 import { useRealtime, type LiveEvent } from "../lib/useRealtime";
 import { formatMoney, formatDateTime } from "../lib/format";
 
@@ -24,6 +24,35 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "#e74c3c",
   paused: "#9aa3b2",
 };
+
+// Percentage change vs the previous period. Up is good (green) for every metric
+// on this dashboard; a brand-new value (no prior) is shown as "new".
+function DeltaBadge({ d }: { d?: MetricDelta }) {
+  if (!d) return null;
+  const { current, previous } = d;
+  let dir: "up" | "down" | "flat" = "flat";
+  let label: string;
+  if (previous === 0) {
+    if (current === 0) {
+      label = "no change";
+    } else {
+      dir = "up";
+      label = "new";
+    }
+  } else {
+    const pct = ((current - previous) / previous) * 100;
+    dir = pct > 0.05 ? "up" : pct < -0.05 ? "down" : "flat";
+    label = `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
+  }
+  const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "—";
+  return (
+    <div className={`delta ${dir}`}>
+      <span>{arrow}</span>
+      <span>{label}</span>
+      <span className="delta-cap">vs last 30d</span>
+    </div>
+  );
+}
 
 export default function Analytics() {
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -66,18 +95,24 @@ export default function Analytics() {
         <div className="stat">
           <div className="label">MRR</div>
           <div className="value">{data ? formatMoney(data.summary.mrr_minor, currency) : "…"}</div>
+          <DeltaBadge d={data?.deltas?.mrr} />
         </div>
         <div className="stat">
-          <div className="label">Total revenue (30d)</div>
-          <div className="value">{data ? formatMoney(data.summary.total_revenue_minor, currency) : "…"}</div>
+          <div className="label">Revenue (last 30d)</div>
+          <div className="value">
+            {data ? formatMoney(data.deltas?.revenue.current ?? data.summary.total_revenue_minor, currency) : "…"}
+          </div>
+          <DeltaBadge d={data?.deltas?.revenue} />
         </div>
         <div className="stat">
           <div className="label">Active subscriptions</div>
           <div className="value">{data ? data.summary.active_subscriptions : "…"}</div>
+          <DeltaBadge d={data?.deltas?.active_subscriptions} />
         </div>
         <div className="stat">
           <div className="label">Customers</div>
           <div className="value">{data ? data.summary.customers : "…"}</div>
+          <DeltaBadge d={data?.deltas?.customers} />
         </div>
       </div>
 
@@ -145,6 +180,34 @@ export default function Analytics() {
           )}
         </div>
       </div>
+
+      {data?.products && data.products.length > 0 && (
+        <div className="panel">
+          <h3>Revenue by product</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Active subscriptions</th>
+                <th>MRR</th>
+                <th>Growth</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.products.map((p) => (
+                <tr key={p.product_id}>
+                  <td style={{ color: "var(--text)" }}>{p.name}</td>
+                  <td>{p.active_subscriptions}</td>
+                  <td>{formatMoney(p.mrr_minor, currency)}</td>
+                  <td>
+                    <DeltaBadge d={{ current: p.mrr_minor, previous: p.prev_mrr_minor }} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="panel">
         <h3>Live activity</h3>
