@@ -437,6 +437,18 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         created_at: nowISO(),
       };
       db.webhooks.unshift(ep);
+      // Seed a few sample deliveries so the per-webhook log isn't empty in demo.
+      const sampleEvents = ep.events[0] === "*" ? ["subscription.created", "payment.succeeded"] : ep.events;
+      sampleEvents.slice(0, 3).forEach((evt, i) => {
+        db.webhookDeliveries.unshift({
+          id: uuid(),
+          endpoint_id: ep.id,
+          event_type: evt,
+          status: i === 1 ? "failed" : "delivered",
+          attempts: i === 1 ? 3 : 1,
+          created_at: new Date(Date.now() - i * 3600000).toISOString(),
+        });
+      });
       save(db);
       return ep as T;
     }

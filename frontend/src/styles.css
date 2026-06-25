@@ -386,6 +386,23 @@ tbody tr:hover { background: var(--panel-2); }
 .check-name { color: var(--text); font-size: 13px; }
 .check-desc { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
+/* ── Webhook cards ────────────────────────────────────────── */
+.wh-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.wh-url { font-weight: 600; font-size: 15px; word-break: break-all; }
+.wh-events { color: var(--muted); margin-top: 4px; font-size: 12px; }
+.wh-head-right { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.wh-secret { color: var(--muted); margin: 12px 0 4px; word-break: break-all; }
+.wh-log-title {
+  margin: 16px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
 /* ── Secret reveal box ────────────────────────────────────── */
 .secret-box {
   margin-top: 12px;

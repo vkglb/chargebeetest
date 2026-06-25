@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type WebhookEndpoint, type WebhookDelivery } from "../api/client";
-import { formatDate } from "../lib/format";
+import { formatDateTime } from "../lib/format";
 import Modal from "../components/Modal";
 
 const EVENT_OPTIONS = [
@@ -83,14 +83,14 @@ export default function Webhooks() {
           <p>We POST signed events to your endpoints in real time</p>
         </div>
         <button className="btn btn-sm" onClick={openModal}>
-          + Add endpoint
+          + Add webhook
         </button>
       </div>
 
       {error && !open && <div className="error">{error}</div>}
 
       {open && (
-        <Modal title="Add a webhook endpoint" onClose={() => setOpen(false)}>
+        <Modal title="Add a webhook" onClose={() => setOpen(false)}>
           <form onSubmit={create}>
             <label>Endpoint URL</label>
             <input
@@ -128,7 +128,7 @@ export default function Webhooks() {
 
             <div className="row" style={{ marginTop: 18, gap: 10 }}>
               <button className="btn btn-sm" disabled={saving}>
-                {saving ? "Adding…" : `Add endpoint (${events.length})`}
+                {saving ? "Adding…" : `Add webhook (${events.length})`}
               </button>
               <button
                 type="button"
@@ -143,75 +143,64 @@ export default function Webhooks() {
         </Modal>
       )}
 
-      <div className="panel">
-        <h3>Endpoints</h3>
-        {endpoints.length === 0 ? (
-          <div className="empty">No endpoints yet.</div>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>URL</th>
-                <th>Events</th>
-                <th>Signing secret</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {endpoints.map((ep) => (
-                <tr key={ep.id}>
-                  <td>{ep.url}</td>
-                  <td>{ep.events.join(", ")}</td>
-                  <td className="mono">{ep.signing_secret.slice(0, 16)}…</td>
-                  <td>
-                    <span className={`badge ${ep.enabled ? "active" : "cancelled"}`}>
-                      {ep.enabled ? "enabled" : "disabled"}
-                    </span>
-                  </td>
-                  <td>
-                    <button className="btn-ghost" onClick={() => remove(ep.id)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {endpoints.length === 0 ? (
+        <div className="panel">
+          <div className="empty">No webhooks yet. Click “+ Add webhook” to create one.</div>
+        </div>
+      ) : (
+        endpoints.map((ep) => {
+          const epDeliveries = deliveries.filter((d) => d.endpoint_id === ep.id);
+          return (
+            <div className="panel" key={ep.id}>
+              <div className="wh-head">
+                <div>
+                  <div className="wh-url">{ep.url}</div>
+                  <div className="wh-events mono">{ep.events.join(", ")}</div>
+                </div>
+                <div className="wh-head-right">
+                  <span className={`badge ${ep.enabled ? "active" : "cancelled"}`}>
+                    {ep.enabled ? "enabled" : "disabled"}
+                  </span>
+                  <button className="btn-ghost" style={{ width: "auto" }} onClick={() => remove(ep.id)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+              <div className="wh-secret mono">Signing secret: {ep.signing_secret}</div>
 
-      <div className="panel">
-        <h3>Recent deliveries</h3>
-        {deliveries.length === 0 ? (
-          <div className="empty">No deliveries yet.</div>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Event</th>
-                <th>Status</th>
-                <th>Attempts</th>
-                <th>When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deliveries.map((d) => (
-                <tr key={d.id}>
-                  <td className="mono" style={{ color: "var(--text)" }}>{d.event_type}</td>
-                  <td>
-                    <span className={`badge ${d.status === "delivered" ? "paid" : d.status === "failed" ? "cancelled" : "open"}`}>
-                      {d.status}
-                    </span>
-                  </td>
-                  <td>{d.attempts}</td>
-                  <td>{formatDate(d.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              <div className="wh-log-title">Delivery log</div>
+              {epDeliveries.length === 0 ? (
+                <div className="empty" style={{ padding: 16 }}>No deliveries sent yet.</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Event</th>
+                      <th>Status</th>
+                      <th>Attempts</th>
+                      <th>Sent at</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {epDeliveries.map((d) => (
+                      <tr key={d.id}>
+                        <td className="mono" style={{ color: "var(--text)" }}>{d.event_type}</td>
+                        <td>
+                          <span className={`badge ${d.status === "delivered" ? "paid" : d.status === "failed" ? "cancelled" : "open"}`}>
+                            {d.status}
+                          </span>
+                        </td>
+                        <td>{d.attempts}</td>
+                        <td className="mono">{formatDateTime(d.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
