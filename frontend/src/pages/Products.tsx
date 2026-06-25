@@ -3,6 +3,7 @@ import { api, type Product, type Price } from "../api/client";
 import { formatMoney } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+import HelpTip from "../components/HelpTip";
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -12,9 +13,11 @@ export default function Products() {
 
   // New price form
   const [productId, setProductId] = useState("");
+  const [nickname, setNickname] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [intervalUnit, setIntervalUnit] = useState("month");
+  const [intervalCount, setIntervalCount] = useState("1");
   const [trialDays, setTrialDays] = useState("0");
   const [query, setQuery] = useState("");
   const q = useDebounce(query).trim().toLowerCase();
@@ -52,13 +55,17 @@ export default function Products() {
     try {
       await api.post("/v1/prices", {
         product_id: productId,
+        nickname: nickname.trim(),
         amount_minor: Math.round(parseFloat(amount) * 100),
         currency,
         interval_unit: intervalUnit,
-        interval_count: 1,
+        interval_count: parseInt(intervalCount, 10) || 1,
         trial_days: parseInt(trialDays, 10) || 0,
       });
       setAmount("");
+      setNickname("");
+      setIntervalCount("1");
+      setTrialDays("0");
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -102,13 +109,19 @@ export default function Products() {
       </div>
 
       <div className="panel">
-        <h3>New plan (price)</h3>
+        <h3>Create a new plan</h3>
+        <p style={{ color: "var(--muted)", marginTop: 0 }}>
+          A plan sets the price and billing cadence for a product.
+        </p>
         {products.length === 0 ? (
           <div className="empty">Create a product first.</div>
         ) : (
-          <form onSubmit={createPrice} className="row" style={{ alignItems: "flex-end" }}>
-            <div>
-              <label>Product</label>
+          <form onSubmit={createPrice} className="plan-form">
+            <div className="field">
+              <span className="field-label">
+                Product
+                <HelpTip text="The product this plan prices. A product can have several plans (e.g. monthly and yearly)." />
+              </span>
               <select value={productId} onChange={(e) => setProductId(e.target.value)}>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -117,8 +130,25 @@ export default function Products() {
                 ))}
               </select>
             </div>
-            <div>
-              <label>Amount</label>
+
+            <div className="field">
+              <span className="field-label">
+                Plan name
+                <span className="optional-tag">optional</span>
+                <HelpTip text="A label to identify this plan, e.g. “Pro Monthly”. Shown in dropdowns and on invoices." />
+              </span>
+              <input
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="Pro Monthly"
+              />
+            </div>
+
+            <div className="field">
+              <span className="field-label">
+                Amount
+                <HelpTip text="The price charged each billing cycle, in the chosen currency." />
+              </span>
               <input
                 type="number"
                 step="0.01"
@@ -128,8 +158,12 @@ export default function Products() {
                 required
               />
             </div>
-            <div>
-              <label>Currency</label>
+
+            <div className="field">
+              <span className="field-label">
+                Currency
+                <HelpTip text="The 3-letter currency this plan is billed in. Each plan has a single currency." />
+              </span>
               <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
                 <option>USD</option>
                 <option>EUR</option>
@@ -137,24 +171,44 @@ export default function Products() {
                 <option>INR</option>
               </select>
             </div>
-            <div>
-              <label>Interval</label>
-              <select value={intervalUnit} onChange={(e) => setIntervalUnit(e.target.value)}>
-                <option value="day">Daily</option>
-                <option value="week">Weekly</option>
-                <option value="month">Monthly</option>
-                <option value="year">Yearly</option>
-              </select>
+
+            <div className="field">
+              <span className="field-label">
+                Bill every
+                <HelpTip text="How often the customer is charged — e.g. every 1 month, or every 3 months for quarterly." />
+              </span>
+              <div className="field-inline">
+                <input
+                  type="number"
+                  min="1"
+                  value={intervalCount}
+                  onChange={(e) => setIntervalCount(e.target.value)}
+                  style={{ width: 70 }}
+                />
+                <select value={intervalUnit} onChange={(e) => setIntervalUnit(e.target.value)}>
+                  <option value="day">day(s)</option>
+                  <option value="week">week(s)</option>
+                  <option value="month">month(s)</option>
+                  <option value="year">year(s)</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label>Trial days</label>
+
+            <div className="field">
+              <span className="field-label">
+                Trial days
+                <span className="optional-tag">optional</span>
+                <HelpTip text="Free trial length before the first charge. Leave at 0 for no trial." />
+              </span>
               <input
                 type="number"
+                min="0"
                 value={trialDays}
                 onChange={(e) => setTrialDays(e.target.value)}
               />
             </div>
-            <div style={{ flex: "0 0 auto" }}>
+
+            <div className="plan-form-actions">
               <button className="btn btn-sm">Add plan</button>
             </div>
           </form>
@@ -180,6 +234,7 @@ export default function Products() {
             <thead>
               <tr>
                 <th>Product</th>
+                <th>Plan name</th>
                 <th>Price</th>
                 <th>Interval</th>
                 <th>Trial</th>
@@ -190,6 +245,7 @@ export default function Products() {
               {filtered.map((p) => (
                 <tr key={p.id}>
                   <td>{productName(p.product_id)}</td>
+                  <td>{p.nickname || "—"}</td>
                   <td>{formatMoney(p.amount_minor, p.currency)}</td>
                   <td>
                     every {p.interval_count} {p.interval_unit}
