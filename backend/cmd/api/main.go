@@ -20,6 +20,7 @@ import (
 	"github.com/chargeebee/platform/internal/gateway/braintree"
 	"github.com/chargeebee/platform/internal/gateway/paypal"
 	"github.com/chargeebee/platform/internal/gateway/razorpay"
+	"github.com/chargeebee/platform/internal/gateway/sandbox"
 	"github.com/google/uuid"
 
 	"github.com/chargeebee/platform/internal/gateway/stripe"
@@ -88,6 +89,7 @@ func run() error {
 		razorpay.New(),
 		braintree.New(),
 		paypal.New(),
+		sandbox.New(),
 	)
 	logger.Info("payment gateways registered", "providers", gateways.Providers())
 
@@ -102,7 +104,7 @@ func run() error {
 	go scheduler.Run(ctx)
 	logger.Info("billing scheduler started", "interval", "1m")
 
-	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, pub, hub, logger)
+	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, pub, hub, engine, logger)
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           srv.Handler(),

@@ -291,6 +291,19 @@ td .delta { margin-top: 0; }
 .today-chip .today-val { font-size: 18px; font-weight: 700; }
 .today-chip .delta { margin-top: 0; }
 
+/* Billing scheduler control */
+.scheduler-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.scheduler-panel p { max-width: 640px; font-size: 13px; line-height: 1.5; }
+.scheduler-panel .btn { flex: 0 0 auto; white-space: nowrap; }
+.bill-result { margin-top: 10px; font-size: 13px; color: var(--text); }
+.bill-result .ok { color: var(--green); font-weight: 600; }
+.bill-result .bad { color: var(--amber); font-weight: 600; }
+
 /* ── Charts ───────────────────────────────────────────────── */
 .chart-row { display: flex; gap: 20px; }
 .chart-row > .panel { margin-bottom: 20px; min-width: 0; }

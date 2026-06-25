@@ -264,6 +264,14 @@ export interface Site {
   status: string;
 }
 
+export interface BillRunResult {
+  marked_due: number;
+  processed: number;
+  succeeded: number;
+  failed: number;
+  mode: string;
+}
+
 export interface CheckoutSessionCreated {
   id: string;
   url: string;

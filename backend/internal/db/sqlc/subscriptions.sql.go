@@ -193,6 +193,59 @@ func (q *Queries) ListDueSubscriptions(ctx context.Context, limit int32) ([]Subs
 	return items, nil
 }
 
+const listDueSubscriptionsForMerchant = `-- name: ListDueSubscriptionsForMerchant :many
+SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode FROM subscriptions
+WHERE merchant_id = $1 AND mode = $2
+  AND status IN ('active', 'past_due')
+  AND next_billing_at IS NOT NULL
+  AND next_billing_at <= now()
+ORDER BY next_billing_at ASC
+LIMIT $3
+`
+
+type ListDueSubscriptionsForMerchantParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+	Limit      int32     `json:"limit"`
+}
+
+// Due subscriptions for one merchant + mode (used by the manual "run now" tool).
+func (q *Queries) ListDueSubscriptionsForMerchant(ctx context.Context, arg ListDueSubscriptionsForMerchantParams) ([]Subscription, error) {
+	rows, err := q.db.Query(ctx, listDueSubscriptionsForMerchant, arg.MerchantID, arg.Mode, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Subscription{}
+	for rows.Next() {
+		var i Subscription
+		if err := rows.Scan(
+			&i.ID,
+			&i.MerchantID,
+			&i.CustomerID,
+			&i.PriceID,
+			&i.PaymentMethodID,
+			&i.Status,
+			&i.Quantity,
+			&i.CurrentPeriodStart,
+			&i.CurrentPeriodEnd,
+			&i.NextBillingAt,
+			&i.CancelAtPeriodEnd,
+			&i.CancelledAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Mode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSubscriptionsByMerchant = `-- name: ListSubscriptionsByMerchant :many
 SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode FROM subscriptions
 WHERE merchant_id = $1 AND mode = $2
@@ -246,6 +299,27 @@ func (q *Queries) ListSubscriptionsByMerchant(ctx context.Context, arg ListSubsc
 		return nil, err
 	}
 	return items, nil
+}
+
+const markSubscriptionsDueNow = `-- name: MarkSubscriptionsDueNow :execrows
+UPDATE subscriptions
+SET next_billing_at = now(), updated_at = now()
+WHERE merchant_id = $1 AND mode = $2 AND status IN ('active', 'past_due')
+`
+
+type MarkSubscriptionsDueNowParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+// Force every active/past_due subscription for a merchant + mode to be due now,
+// so a manual billing run (or the next scheduler tick) will charge them.
+func (q *Queries) MarkSubscriptionsDueNow(ctx context.Context, arg MarkSubscriptionsDueNowParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markSubscriptionsDueNow, arg.MerchantID, arg.Mode)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setSubscriptionStatus = `-- name: SetSubscriptionStatus :one

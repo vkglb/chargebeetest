@@ -386,6 +386,56 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
       } as T;
     }
 
+    case "POST /v1/dev/bill-now": {
+      // Simulate a scheduler pass: bill every active/past_due subscription,
+      // creating an invoice + succeeded transaction and advancing the period.
+      const billable = db.subscriptions.filter(
+        (s) => s.status === "active" || s.status === "past_due",
+      );
+      let succeeded = 0;
+      billable.forEach((s) => {
+        const price = db.prices.find((p) => p.id === s.price_id);
+        const amount = (price?.amount_minor ?? 0) * s.quantity;
+        const inv: Invoice = {
+          id: uuid(),
+          customer_id: s.customer_id,
+          subscription_id: s.id,
+          status: "paid",
+          currency: price?.currency ?? "USD",
+          subtotal_minor: amount,
+          discount_minor: 0,
+          tax_minor: 0,
+          total_minor: amount,
+          period_start: daysFromNow(0),
+          period_end: daysFromNow(30),
+          paid_at: nowISO(),
+          created_at: nowISO(),
+        };
+        db.invoices.unshift(inv);
+        db.transactions.unshift({
+          id: uuid(),
+          invoice_id: inv.id,
+          gateway_txn_ref: "pi_sbx_" + Math.random().toString(36).slice(2, 14),
+          status: "succeeded",
+          amount_minor: amount,
+          currency: inv.currency,
+          failure_reason: null,
+          created_at: nowISO(),
+        });
+        s.status = "active";
+        s.next_billing_at = daysFromNow(30);
+        succeeded++;
+      });
+      save(db);
+      return {
+        marked_due: billable.length,
+        processed: billable.length,
+        succeeded,
+        failed: 0,
+        mode: getMode(),
+      } as T;
+    }
+
     case "GET /v1/products":
       return db.products as T;
     case "POST /v1/products": {

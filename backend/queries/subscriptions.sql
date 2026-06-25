@@ -24,6 +24,23 @@ WHERE status IN ('active', 'past_due')
 ORDER BY next_billing_at ASC
 LIMIT $1;
 
+-- name: ListDueSubscriptionsForMerchant :many
+-- Due subscriptions for one merchant + mode (used by the manual "run now" tool).
+SELECT * FROM subscriptions
+WHERE merchant_id = $1 AND mode = $2
+  AND status IN ('active', 'past_due')
+  AND next_billing_at IS NOT NULL
+  AND next_billing_at <= now()
+ORDER BY next_billing_at ASC
+LIMIT $3;
+
+-- name: MarkSubscriptionsDueNow :execrows
+-- Force every active/past_due subscription for a merchant + mode to be due now,
+-- so a manual billing run (or the next scheduler tick) will charge them.
+UPDATE subscriptions
+SET next_billing_at = now(), updated_at = now()
+WHERE merchant_id = $1 AND mode = $2 AND status IN ('active', 'past_due');
+
 -- name: AdvanceSubscriptionPeriod :one
 UPDATE subscriptions
 SET current_period_start = $2,

@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, type Subscription, type Customer, type Price, type Product } from "../api/client";
+import {
+  api,
+  getMode,
+  type Subscription,
+  type Customer,
+  type Price,
+  type Product,
+  type BillRunResult,
+} from "../api/client";
 import { formatDate, formatMoney } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
@@ -15,6 +23,23 @@ export default function Subscriptions() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const q = useDebounce(query).trim().toLowerCase();
+  const [billing, setBilling] = useState(false);
+  const [billResult, setBillResult] = useState<BillRunResult | null>(null);
+
+  async function runBilling() {
+    setBilling(true);
+    setBillResult(null);
+    setError("");
+    try {
+      const res = await api.post<BillRunResult>("/v1/dev/bill-now");
+      setBillResult(res);
+      await load(); // refetch so new invoices / status changes show
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBilling(false);
+    }
+  }
 
   async function load() {
     const [s, c, pr, p] = await Promise.all([
@@ -122,6 +147,27 @@ export default function Subscriptions() {
             </div>
           </form>
         )}
+      </div>
+
+      <div className="panel scheduler-panel">
+        <div>
+          <h3 style={{ margin: "0 0 4px" }}>Billing scheduler</h3>
+          <p style={{ color: "var(--muted)", margin: 0 }}>
+            The engine runs automatically every minute, charging subscriptions whose next billing
+            date has passed. Run it now to bill all <strong>{getMode()}</strong> subscriptions on
+            demand and watch invoices, transactions and statuses update.
+          </p>
+          {billResult && (
+            <div className="bill-result">
+              Marked {billResult.marked_due} due · processed {billResult.processed} ·{" "}
+              <span className="ok">{billResult.succeeded} succeeded</span> ·{" "}
+              <span className="bad">{billResult.failed} failed (dunning)</span>
+            </div>
+          )}
+        </div>
+        <button className="btn btn-sm" disabled={billing} onClick={runBilling}>
+          {billing ? "Running…" : "Run billing cycle now"}
+        </button>
       </div>
 
       <div className="panel">

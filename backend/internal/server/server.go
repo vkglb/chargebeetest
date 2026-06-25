@@ -2,6 +2,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/chargeebee/platform/internal/auth"
+	"github.com/chargeebee/platform/internal/billing"
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 	"github.com/chargeebee/platform/internal/realtime"
 )
@@ -21,6 +23,12 @@ import (
 // Emitter publishes a domain event (to webhooks + live dashboards).
 type Emitter interface {
 	Emit(merchantID uuid.UUID, mode, eventType string, data any)
+}
+
+// BillingRunner runs a billing pass for one merchant + mode on demand (the
+// manual "run scheduler now" trigger).
+type BillingRunner interface {
+	RunForMerchant(ctx context.Context, merchantID uuid.UUID, mode string) (billing.RunSummary, error)
 }
 
 // Server holds shared dependencies for HTTP handlers.
@@ -33,11 +41,12 @@ type Server struct {
 	corsOrigins     string
 	emitter         Emitter
 	hub             *realtime.Hub
+	billing         BillingRunner
 	router          chi.Router
 }
 
 // New constructs a Server and registers all routes.
-func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, emitter Emitter, hub *realtime.Hub, logger *slog.Logger) *Server {
+func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, emitter Emitter, hub *realtime.Hub, billing BillingRunner, logger *slog.Logger) *Server {
 	s := &Server{
 		pool:            pool,
 		q:               sqlc.New(pool),
@@ -47,6 +56,7 @@ func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOri
 		corsOrigins:     corsOrigins,
 		emitter:         emitter,
 		hub:             hub,
+		billing:         billing,
 		router:          chi.NewRouter(),
 	}
 	s.routes()
@@ -99,6 +109,7 @@ func (s *Server) routes() {
 			r.Get("/sites", s.handleListSites)
 			r.Get("/analytics", s.handleAnalytics)
 			r.Post("/dev/seed", s.handleSeed)
+			r.Post("/dev/bill-now", s.handleBillNow)
 
 			r.Post("/products", s.handleCreateProduct)
 			r.Get("/products", s.handleListProducts)

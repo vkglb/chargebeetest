@@ -41,6 +41,13 @@ func NewEngine(q *sqlc.Queries, registry *gateway.Registry, resolve CredentialRe
 	return &Engine{q: q, registry: registry, resolve: resolve, emit: emit, logger: logger, batch: 100}
 }
 
+// RunSummary reports the outcome of a billing pass, for the manual "run now" UI.
+type RunSummary struct {
+	Processed int `json:"processed"`
+	Succeeded int `json:"succeeded"`
+	Failed    int `json:"failed"`
+}
+
 // RunOnce processes one batch of due subscriptions. The scheduler calls this on
 // a tick; each due subscription is charged for its next period.
 func (e *Engine) RunOnce(ctx context.Context) (processed int, err error) {
@@ -49,7 +56,7 @@ func (e *Engine) RunOnce(ctx context.Context) (processed int, err error) {
 		return 0, fmt.Errorf("list due subscriptions: %w", err)
 	}
 	for _, sub := range subs {
-		if err := e.processSubscription(ctx, sub); err != nil {
+		if _, err := e.processSubscription(ctx, sub); err != nil {
 			// Isolate failures: one bad subscription must not stall the batch.
 			e.logger.Error("billing: subscription failed",
 				"subscription_id", sub.ID, "merchant_id", sub.MerchantID, "error", err)
@@ -60,20 +67,51 @@ func (e *Engine) RunOnce(ctx context.Context) (processed int, err error) {
 	return processed, nil
 }
 
-// processSubscription bills a single due subscription end-to-end.
-func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription) error {
+// RunForMerchant bills the due subscriptions of a single merchant + mode and
+// returns a per-pass summary. Used by the manual trigger so a user can watch the
+// scheduler logic run on demand instead of waiting for the tick.
+func (e *Engine) RunForMerchant(ctx context.Context, merchantID uuid.UUID, mode string) (RunSummary, error) {
+	subs, err := e.q.ListDueSubscriptionsForMerchant(ctx, sqlc.ListDueSubscriptionsForMerchantParams{
+		MerchantID: merchantID,
+		Mode:       mode,
+		Limit:      e.batch,
+	})
+	if err != nil {
+		return RunSummary{}, fmt.Errorf("list due subscriptions: %w", err)
+	}
+	var sum RunSummary
+	for _, sub := range subs {
+		succeeded, err := e.processSubscription(ctx, sub)
+		if err != nil {
+			e.logger.Error("billing: subscription failed",
+				"subscription_id", sub.ID, "merchant_id", sub.MerchantID, "error", err)
+			continue
+		}
+		sum.Processed++
+		if succeeded {
+			sum.Succeeded++
+		} else {
+			sum.Failed++
+		}
+	}
+	return sum, nil
+}
+
+// processSubscription bills a single due subscription end-to-end. The bool
+// reports whether the charge succeeded (false = entered dunning).
+func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription) (bool, error) {
 	price, err := e.q.GetPrice(ctx, sqlc.GetPriceParams{ID: sub.PriceID, MerchantID: sub.MerchantID})
 	if err != nil {
-		return fmt.Errorf("get price: %w", err)
+		return false, fmt.Errorf("get price: %w", err)
 	}
 	customer, err := e.q.GetCustomer(ctx, sqlc.GetCustomerParams{ID: sub.CustomerID, MerchantID: sub.MerchantID})
 	if err != nil {
-		return fmt.Errorf("get customer: %w", err)
+		return false, fmt.Errorf("get customer: %w", err)
 	}
 
 	pm, err := e.resolvePaymentMethod(ctx, sub)
 	if err != nil {
-		return fmt.Errorf("resolve payment method: %w", err)
+		return false, fmt.Errorf("resolve payment method: %w", err)
 	}
 
 	acct, err := e.q.GetPrimaryGatewayAccount(ctx, sqlc.GetPrimaryGatewayAccountParams{
@@ -81,21 +119,21 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 		Mode:       sub.Mode,
 	})
 	if err != nil {
-		return fmt.Errorf("get gateway account: %w", err)
+		return false, fmt.Errorf("get gateway account: %w", err)
 	}
 	gw, err := e.registry.Get(acct.Provider)
 	if err != nil {
-		return fmt.Errorf("resolve gateway: %w", err)
+		return false, fmt.Errorf("resolve gateway: %w", err)
 	}
 	creds, err := e.resolve.Resolve(ctx, acct)
 	if err != nil {
-		return fmt.Errorf("resolve credentials: %w", err)
+		return false, fmt.Errorf("resolve credentials: %w", err)
 	}
 
 	now := time.Now().UTC()
 	periodStart, periodEnd, err := PeriodBounds(now, price.IntervalUnit, int(price.IntervalCount))
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	amount := price.AmountMinor * int64(sub.Quantity)
@@ -117,7 +155,7 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 		IssuedAt:       timePtr(now),
 	})
 	if err != nil {
-		return fmt.Errorf("create invoice: %w", err)
+		return false, fmt.Errorf("create invoice: %w", err)
 	}
 
 	// Idempotency key ties the charge to this subscription+period — a retried
@@ -132,7 +170,7 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 		Description:     fmt.Sprintf("Subscription %s", sub.ID),
 	})
 	if chargeErr != nil {
-		return fmt.Errorf("charge: %w", chargeErr)
+		return false, fmt.Errorf("charge: %w", chargeErr)
 	}
 
 	// Record the transaction regardless of outcome.
@@ -148,7 +186,7 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 		IdempotencyKey: pgText(idem),
 	})
 	if err != nil {
-		return fmt.Errorf("record transaction: %w", err)
+		return false, fmt.Errorf("record transaction: %w", err)
 	}
 
 	e.emit.Emit(sub.MerchantID, sub.Mode, "invoice.created", map[string]any{
@@ -159,12 +197,12 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 		e.emit.Emit(sub.MerchantID, sub.Mode, "payment.succeeded", map[string]any{
 			"subscription_id": sub.ID, "invoice_id": inv.ID, "amount_minor": amount, "currency": price.Currency,
 		})
-		return e.onChargeSucceeded(ctx, sub, inv.ID, periodStart, periodEnd)
+		return true, e.onChargeSucceeded(ctx, sub, inv.ID, periodStart, periodEnd)
 	}
 	e.emit.Emit(sub.MerchantID, sub.Mode, "payment.failed", map[string]any{
 		"subscription_id": sub.ID, "invoice_id": inv.ID, "reason": res.FailureReason,
 	})
-	return e.onChargeFailed(ctx, sub, inv.ID, now)
+	return false, e.onChargeFailed(ctx, sub, inv.ID, now)
 }
 
 func (e *Engine) onChargeSucceeded(ctx context.Context, sub sqlc.Subscription, invoiceID uuid.UUID, periodStart, periodEnd time.Time) error {

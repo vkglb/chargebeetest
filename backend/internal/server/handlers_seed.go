@@ -60,23 +60,46 @@ func (s *Server) handleSeed(w http.ResponseWriter, r *http.Request) {
 		priceAmt = append(priceAmt, sp.amount)
 	}
 
+	// Connect the sandbox simulator gateway so the seeded subscriptions are
+	// billable end-to-end (the scheduler can charge them without real cards).
+	_, _ = s.q.UpsertGatewayAccount(ctx, sqlc.UpsertGatewayAccountParams{
+		MerchantID: mid, Mode: md, Provider: "sandbox",
+		AccountRef: pgText("sandbox-simulator"), EncryptedCredentials: []byte("sandbox"),
+	})
+
 	// ── Customers + subscriptions (varied statuses) ──────────
 	names := []string{"Jane Doe", "Sam Park", "Acme Corp", "Globex", "Initech", "Umbrella", "Hooli", "Stark Inc"}
 	statuses := []string{"active", "active", "active", "trialing", "past_due", "cancelled"}
 	for i, name := range names {
 		email := fmt.Sprintf("user%d+%s@example.com", i, uuid.NewString()[:6])
 		cust, err := s.q.CreateCustomer(ctx, sqlc.CreateCustomerParams{
-			MerchantID: mid, Mode: md, Email: email, Name: pgText(name), GatewayCustomerRef: pgText(""),
+			MerchantID: mid, Mode: md, Email: email, Name: pgText(name),
+			GatewayCustomerRef: pgText("cus_sbx_" + uuid.NewString()[:12]),
 		})
 		if err != nil {
 			continue
+		}
+		// Give each customer a saved (sandbox) card. Every 4th one gets a card
+		// that will be declined, so a billing run shows the dunning path too.
+		pmRef := "pm_sbx_" + uuid.NewString()[:12]
+		if i%4 == 3 {
+			pmRef = "pm_fail_" + uuid.NewString()[:8]
+		}
+		pm, err := s.q.CreatePaymentMethod(ctx, sqlc.CreatePaymentMethodParams{
+			MerchantID: mid, Mode: md, CustomerID: cust.ID, GatewayPmRef: pmRef,
+			Brand: pgText("visa"), Last4: pgText("4242"), ExpMonth: pgInt4(12, true), ExpYear: pgInt4(2030, true),
+			IsDefault: true,
+		})
+		pmID := pgUUID(uuid.Nil)
+		if err == nil {
+			pmID = pgUUID(pm.ID)
 		}
 		pIdx := i % len(priceIDs)
 		status := statuses[i%len(statuses)]
 		ps, pe, _ := billing.PeriodBounds(now, "month", 1)
 		_, _ = s.q.CreateSubscription(ctx, sqlc.CreateSubscriptionParams{
 			MerchantID: mid, Mode: md, CustomerID: cust.ID, PriceID: priceIDs[pIdx],
-			PaymentMethodID: pgUUID(uuid.Nil), Status: status, Quantity: 1,
+			PaymentMethodID: pmID, Status: status, Quantity: 1,
 			CurrentPeriodStart: timePtr(ps), CurrentPeriodEnd: timePtr(pe), NextBillingAt: timePtr(pe),
 		})
 	}

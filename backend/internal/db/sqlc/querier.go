@@ -57,6 +57,8 @@ type Querier interface {
 	ListCustomersByMerchant(ctx context.Context, arg ListCustomersByMerchantParams) ([]Customer, error)
 	// The scheduler cursor: subscriptions due for billing now (across all modes).
 	ListDueSubscriptions(ctx context.Context, limit int32) ([]Subscription, error)
+	// Due subscriptions for one merchant + mode (used by the manual "run now" tool).
+	ListDueSubscriptionsForMerchant(ctx context.Context, arg ListDueSubscriptionsForMerchantParams) ([]Subscription, error)
 	ListEnabledWebhookEndpoints(ctx context.Context, arg ListEnabledWebhookEndpointsParams) ([]WebhookEndpoint, error)
 	ListGatewayAccountsByMerchant(ctx context.Context, arg ListGatewayAccountsByMerchantParams) ([]ListGatewayAccountsByMerchantRow, error)
 	ListInvoicesByMerchant(ctx context.Context, arg ListInvoicesByMerchantParams) ([]Invoice, error)
@@ -71,6 +73,9 @@ type Querier interface {
 	MRRAsOf(ctx context.Context, arg MRRAsOfParams) (int64, error)
 	MarkInvoicePaid(ctx context.Context, id uuid.UUID) (Invoice, error)
 	MarkInvoiceStatus(ctx context.Context, arg MarkInvoiceStatusParams) (Invoice, error)
+	// Force every active/past_due subscription for a merchant + mode to be due now,
+	// so a manual billing run (or the next scheduler tick) will charge them.
+	MarkSubscriptionsDueNow(ctx context.Context, arg MarkSubscriptionsDueNowParams) (int64, error)
 	// Per-product current MRR vs MRR as of `cutoff` ($3), for growth arrows.
 	ProductMRRBreakdown(ctx context.Context, arg ProductMRRBreakdownParams) ([]ProductMRRBreakdownRow, error)
 	// ── Period-over-period comparison helpers ──────────────────────────
