@@ -29,6 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
   trialing: "#6c5ce7",
   past_due: "#f1c40f",
   cancelled: "#e74c3c",
+  unpaid: "#ff8a7a",
   paused: "#9aa3b2",
 };
 

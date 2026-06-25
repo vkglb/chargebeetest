@@ -2,11 +2,13 @@ package billing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 	"github.com/chargeebee/platform/internal/domain"
@@ -111,6 +113,11 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 
 	pm, err := e.resolvePaymentMethod(ctx, sub)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// No saved card — this subscription can't be billed. Mark it unpaid
+			// so the scheduler stops retrying it every tick, and surface it.
+			return false, e.markUnbillable(ctx, sub, "no_payment_method")
+		}
 		return false, fmt.Errorf("resolve payment method: %w", err)
 	}
 
@@ -119,6 +126,10 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 		Mode:       sub.Mode,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// No payment gateway connected — nothing can be charged yet.
+			return false, e.markUnbillable(ctx, sub, "no_gateway")
+		}
 		return false, fmt.Errorf("get gateway account: %w", err)
 	}
 	gw, err := e.registry.Get(acct.Provider)
@@ -248,6 +259,26 @@ func (e *Engine) onChargeFailed(ctx context.Context, sub sqlc.Subscription, invo
 	}
 	e.logger.Warn("billing: charge failed, entered dunning",
 		"subscription_id", sub.ID, "merchant_id", sub.MerchantID, "next_retry", when)
+	return nil
+}
+
+// markUnbillable takes a due subscription that cannot be charged (no saved card
+// or no connected gateway) out of the billing cycle by setting it to "unpaid",
+// so the scheduler stops retrying it every tick. It logs at Warn (not Error) and
+// emits an event so the merchant can fix the underlying cause.
+func (e *Engine) markUnbillable(ctx context.Context, sub sqlc.Subscription, reason string) error {
+	if _, err := e.q.SetSubscriptionStatus(ctx, sqlc.SetSubscriptionStatusParams{
+		ID:         sub.ID,
+		Status:     "unpaid",
+		MerchantID: sub.MerchantID,
+	}); err != nil {
+		return fmt.Errorf("mark unpaid: %w", err)
+	}
+	e.logger.Warn("billing: subscription not billable, marked unpaid",
+		"subscription_id", sub.ID, "merchant_id", sub.MerchantID, "reason", reason)
+	e.emit.Emit(sub.MerchantID, sub.Mode, "subscription.unpaid", map[string]any{
+		"subscription_id": sub.ID, "reason": reason,
+	})
 	return nil
 }
 
