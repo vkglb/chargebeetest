@@ -311,6 +311,48 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
     case "GET /v1/sites":
       return [{ id: "demo-merchant-0000", name: "Demo Business", status: "active" }] as T;
 
+    case "GET /v1/analytics": {
+      const statusMap: Record<string, number> = {};
+      db.subscriptions.forEach((s) => (statusMap[s.status] = (statusMap[s.status] || 0) + 1));
+      let mrr = 0;
+      db.subscriptions
+        .filter((s) => s.status === "active" || s.status === "trialing")
+        .forEach((s) => {
+          const p = db.prices.find((x) => x.id === s.price_id);
+          if (!p) return;
+          const monthly =
+            p.interval_unit === "year"
+              ? p.amount_minor / 12
+              : p.interval_unit === "week"
+                ? p.amount_minor * 4
+                : p.interval_unit === "day"
+                  ? p.amount_minor * 30
+                  : p.amount_minor;
+          mrr += monthly * s.quantity;
+        });
+      // Synthesized 30-day series so the demo charts look alive.
+      const revenue_by_day: { day: string; value: number }[] = [];
+      const subscriptions_by_day: { day: string; value: number }[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const day = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+        revenue_by_day.push({ day, value: Math.round((Math.sin(i / 4) + 1.6) * 4000 + Math.random() * 2500) });
+        subscriptions_by_day.push({ day, value: Math.round(Math.random() * 3) });
+      }
+      const total = revenue_by_day.reduce((a, b) => a + b.value, 0);
+      return {
+        summary: {
+          customers: db.customers.length,
+          active_subscriptions: statusMap["active"] || 0,
+          total_subscriptions: db.subscriptions.length,
+          total_revenue_minor: total,
+          mrr_minor: Math.round(mrr),
+        },
+        revenue_by_day,
+        subscriptions_by_day,
+        status_breakdown: Object.entries(statusMap).map(([status, count]) => ({ status, count })),
+      } as T;
+    }
+
     case "GET /v1/products":
       return db.products as T;
     case "POST /v1/products": {

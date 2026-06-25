@@ -202,6 +202,32 @@ export interface ApiKeyCreated extends ApiKey {
   secret: string; // shown once
 }
 
+export interface SeriesPoint {
+  day: string;
+  value: number;
+}
+export interface Analytics {
+  summary: {
+    customers: number;
+    active_subscriptions: number;
+    total_subscriptions: number;
+    total_revenue_minor: number;
+    mrr_minor: number;
+  };
+  revenue_by_day: SeriesPoint[];
+  subscriptions_by_day: SeriesPoint[];
+  status_breakdown: { status: string; count: number }[];
+}
+
+// WebSocket URL for the live event stream, or null in guest/unauthenticated mode.
+export function realtimeUrl(): string | null {
+  const token = getToken();
+  if (!token || token === GUEST_TOKEN) return null;
+  const httpBase = API_BASE || window.location.origin;
+  const wsBase = httpBase.replace(/^http/, "ws");
+  return `${wsBase}/v1/realtime?token=${encodeURIComponent(token)}&mode=${getMode()}`;
+}
+
 export interface Site {
   id: string;
   name: string;
