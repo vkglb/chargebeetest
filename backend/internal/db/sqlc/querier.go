@@ -12,7 +12,9 @@ import (
 
 type Querier interface {
 	AdvanceSubscriptionPeriod(ctx context.Context, arg AdvanceSubscriptionPeriodParams) (Subscription, error)
+	AnalyticsMRR(ctx context.Context, arg AnalyticsMRRParams) (int64, error)
 	CompleteCheckoutSession(ctx context.Context, arg CompleteCheckoutSessionParams) (CheckoutSession, error)
+	CountCustomers(ctx context.Context, arg CountCustomersParams) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateCheckoutSession(ctx context.Context, arg CreateCheckoutSessionParams) (CheckoutSession, error)
 	CreateCoupon(ctx context.Context, arg CreateCouponParams) (Coupon, error)
@@ -63,9 +65,13 @@ type Querier interface {
 	ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpointsParams) ([]WebhookEndpoint, error)
 	MarkInvoicePaid(ctx context.Context, id uuid.UUID) (Invoice, error)
 	MarkInvoiceStatus(ctx context.Context, arg MarkInvoiceStatusParams) (Invoice, error)
+	RevenueByDay(ctx context.Context, arg RevenueByDayParams) ([]RevenueByDayRow, error)
 	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error
 	SetCustomerGatewayRef(ctx context.Context, arg SetCustomerGatewayRefParams) (Customer, error)
 	SetSubscriptionStatus(ctx context.Context, arg SetSubscriptionStatusParams) (Subscription, error)
+	SubscriptionStatusBreakdown(ctx context.Context, arg SubscriptionStatusBreakdownParams) ([]SubscriptionStatusBreakdownRow, error)
+	SubscriptionsByDay(ctx context.Context, arg SubscriptionsByDayParams) ([]SubscriptionsByDayRow, error)
+	TotalRevenue(ctx context.Context, arg TotalRevenueParams) (int64, error)
 	TouchAPIKey(ctx context.Context, id uuid.UUID) error
 	UpdateMerchantStatus(ctx context.Context, arg UpdateMerchantStatusParams) (Merchant, error)
 	UpdateWebhookDeliveryResult(ctx context.Context, arg UpdateWebhookDeliveryResultParams) (WebhookDelivery, error)

@@ -20,10 +20,25 @@ import (
 	"github.com/chargeebee/platform/internal/gateway/braintree"
 	"github.com/chargeebee/platform/internal/gateway/paypal"
 	"github.com/chargeebee/platform/internal/gateway/razorpay"
+	"github.com/google/uuid"
+
 	"github.com/chargeebee/platform/internal/gateway/stripe"
+	"github.com/chargeebee/platform/internal/realtime"
 	"github.com/chargeebee/platform/internal/server"
 	"github.com/chargeebee/platform/internal/webhooks"
 )
+
+// publisher fans a domain event out to both webhook subscribers and live
+// dashboards, satisfying billing.Emitter and server.Emitter.
+type publisher struct {
+	dispatcher *webhooks.Dispatcher
+	hub        *realtime.Hub
+}
+
+func (p *publisher) Emit(merchantID uuid.UUID, mode, eventType string, data any) {
+	p.dispatcher.Emit(merchantID, mode, eventType, data)
+	p.hub.Broadcast(merchantID, mode, eventType, data)
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -76,16 +91,18 @@ func run() error {
 	)
 	logger.Info("payment gateways registered", "providers", gateways.Providers())
 
-	// Outbound webhook dispatcher (signs + POSTs events, records deliveries).
+	// Outbound webhook dispatcher + live-update hub, combined into one publisher.
 	dispatcher := webhooks.New(queries, logger)
+	hub := realtime.NewHub(logger)
+	pub := &publisher{dispatcher: dispatcher, hub: hub}
 
 	// Billing engine + scheduler (the platform "clock").
-	engine := billing.NewEngine(queries, gateways, billing.PlaintextResolver{}, dispatcher, logger)
+	engine := billing.NewEngine(queries, gateways, billing.PlaintextResolver{}, pub, logger)
 	scheduler := billing.NewScheduler(engine, time.Minute)
 	go scheduler.Run(ctx)
 	logger.Info("billing scheduler started", "interval", "1m")
 
-	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, dispatcher, logger)
+	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, pub, hub, logger)
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           srv.Handler(),

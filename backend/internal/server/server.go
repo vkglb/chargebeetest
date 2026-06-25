@@ -11,10 +11,17 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/google/uuid"
+
 	"github.com/chargeebee/platform/internal/auth"
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
-	"github.com/chargeebee/platform/internal/webhooks"
+	"github.com/chargeebee/platform/internal/realtime"
 )
+
+// Emitter publishes a domain event (to webhooks + live dashboards).
+type Emitter interface {
+	Emit(merchantID uuid.UUID, mode, eventType string, data any)
+}
 
 // Server holds shared dependencies for HTTP handlers.
 type Server struct {
@@ -24,12 +31,13 @@ type Server struct {
 	logger          *slog.Logger
 	checkoutBaseURL string
 	corsOrigins     string
-	dispatcher      *webhooks.Dispatcher
+	emitter         Emitter
+	hub             *realtime.Hub
 	router          chi.Router
 }
 
 // New constructs a Server and registers all routes.
-func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, dispatcher *webhooks.Dispatcher, logger *slog.Logger) *Server {
+func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, emitter Emitter, hub *realtime.Hub, logger *slog.Logger) *Server {
 	s := &Server{
 		pool:            pool,
 		q:               sqlc.New(pool),
@@ -37,7 +45,8 @@ func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOri
 		logger:          logger,
 		checkoutBaseURL: checkoutBaseURL,
 		corsOrigins:     corsOrigins,
-		dispatcher:      dispatcher,
+		emitter:         emitter,
+		hub:             hub,
 		router:          chi.NewRouter(),
 	}
 	s.routes()
@@ -69,6 +78,10 @@ func (s *Server) routes() {
 		r.Post("/signup", s.handleSignup)
 		r.Post("/login", s.handleLogin)
 
+		// Live updates (WebSocket). Auth via ?token= query param since browsers
+		// can't set headers on a WS handshake.
+		r.Get("/realtime", s.handleRealtime)
+
 		// Public hosted-checkout endpoints (the customer is not authenticated).
 		r.Get("/checkout/sessions/{id}", s.handleGetCheckoutSession)
 		r.Post("/checkout/sessions/{id}/complete", s.handleCompleteCheckoutSession)
@@ -84,6 +97,7 @@ func (s *Server) routes() {
 			r.Use(s.requireAuth)
 
 			r.Get("/sites", s.handleListSites)
+			r.Get("/analytics", s.handleAnalytics)
 
 			r.Post("/products", s.handleCreateProduct)
 			r.Get("/products", s.handleListProducts)

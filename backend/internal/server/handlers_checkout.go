@@ -215,7 +215,7 @@ func (s *Server) handleCompleteCheckoutSession(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	s.dispatcher.Emit(session.MerchantID, session.Mode, "subscription.created", map[string]any{
+	s.emitter.Emit(session.MerchantID, session.Mode, "subscription.created", map[string]any{
 		"subscription_id": sub.ID, "customer_id": customer.ID, "price_id": session.PriceID, "via": "checkout",
 	})
 

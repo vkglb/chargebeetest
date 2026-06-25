@@ -89,7 +89,7 @@ func (s *Server) handleCreateSubscription(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	s.dispatcher.Emit(mid, mode(r), "subscription.created", map[string]any{
+	s.emitter.Emit(mid, mode(r), "subscription.created", map[string]any{
 		"subscription_id": sub.ID, "customer_id": sub.CustomerID, "price_id": sub.PriceID, "status": sub.Status,
 	})
 	writeJSON(w, http.StatusCreated, sub)
