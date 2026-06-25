@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Customer } from "../api/client";
 import { formatDate } from "../lib/format";
+import { useDebounce } from "../lib/useDebounce";
+import SearchInput from "../components/SearchInput";
 
 export default function Customers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -8,6 +10,15 @@ export default function Customers() {
   const [name, setName] = useState("");
   const [gatewayRef, setGatewayRef] = useState("");
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const q = useDebounce(query).trim().toLowerCase();
+
+  const filtered = useMemo(() => {
+    if (!q) return customers;
+    return customers.filter((c) =>
+      [c.email, c.name, c.gateway_customer_ref].some((f) => f?.toLowerCase().includes(q)),
+    );
+  }, [customers, q]);
 
   async function load() {
     setCustomers(await api.get<Customer[]>("/v1/customers"));
@@ -78,9 +89,19 @@ export default function Customers() {
       </div>
 
       <div className="panel">
-        <h3>All customers</h3>
+        <div className="panel-head">
+          <h3>
+            All customers
+            <span className="count">{filtered.length}</span>
+          </h3>
+          {customers.length > 0 && (
+            <SearchInput value={query} onChange={setQuery} placeholder="Search email or name…" />
+          )}
+        </div>
         {customers.length === 0 ? (
           <div className="empty">No customers yet.</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty">No customers match “{query}”.</div>
         ) : (
           <table>
             <thead>
@@ -92,7 +113,7 @@ export default function Customers() {
               </tr>
             </thead>
             <tbody>
-              {customers.map((c) => (
+              {filtered.map((c) => (
                 <tr key={c.id}>
                   <td>{c.email}</td>
                   <td>{c.name || "—"}</td>

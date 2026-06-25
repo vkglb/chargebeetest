@@ -123,9 +123,12 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .site-btn { width: auto !important; padding: 9px 16px !important; }
 
 /* ── App shell ────────────────────────────────────────────── */
-.app-shell { display: flex; min-height: 100vh; }
+.app-shell { display: flex; height: 100vh; overflow: hidden; }
 .sidebar {
   width: 230px;
+  flex-shrink: 0;
+  height: 100vh;
+  overflow-y: auto;
   background: var(--panel);
   border-right: 1px solid var(--border);
   display: flex;
@@ -189,7 +192,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .sidebar-footer { border-top: 1px solid var(--border); padding-top: 14px; }
 .merchant-id { color: var(--muted); font-size: 12px; padding: 0 8px 10px; }
 
-.content { flex: 1; padding: 28px 32px; overflow: auto; }
+.content { flex: 1; min-width: 0; padding: 28px 32px; overflow-y: auto; overflow-x: hidden; }
 
 /* Mode banner (always visible, states Test vs Live) */
 .mode-banner {
@@ -280,6 +283,60 @@ th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--bo
 th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
 tbody tr:hover { background: var(--panel-2); }
 .empty { color: var(--muted); padding: 24px; text-align: center; }
+
+/* ── Panel header + search ────────────────────────────────── */
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.panel-head h3 { margin: 0; }
+.panel-head .count { color: var(--muted); font-size: 12px; margin-left: 8px; font-weight: 400; }
+.search-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 260px;
+  max-width: 100%;
+}
+.search-input .search-icon {
+  position: absolute;
+  left: 10px;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.search-input input {
+  width: 100%;
+  padding: 8px 30px 8px 32px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+}
+.search-input input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.search-clear:hover { color: var(--text); }
 
 /* ── Badges ───────────────────────────────────────────────── */
 .badge { padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; }

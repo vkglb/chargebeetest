@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Product, type Price } from "../api/client";
 import { formatMoney } from "../lib/format";
+import { useDebounce } from "../lib/useDebounce";
+import SearchInput from "../components/SearchInput";
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -14,6 +16,8 @@ export default function Products() {
   const [currency, setCurrency] = useState("USD");
   const [intervalUnit, setIntervalUnit] = useState("month");
   const [trialDays, setTrialDays] = useState("0");
+  const [query, setQuery] = useState("");
+  const q = useDebounce(query).trim().toLowerCase();
 
   async function load() {
     const [p, pr] = await Promise.all([
@@ -62,6 +66,16 @@ export default function Products() {
   }
 
   const productName = (id: string) => products.find((p) => p.id === id)?.name ?? "—";
+
+  const filtered = useMemo(() => {
+    if (!q) return prices;
+    return prices.filter((p) =>
+      [productName(p.product_id), p.interval_unit, p.currency].some((f) =>
+        f.toLowerCase().includes(q),
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prices, q, products]);
 
   return (
     <div>
@@ -148,9 +162,19 @@ export default function Products() {
       </div>
 
       <div className="panel">
-        <h3>Plans</h3>
+        <div className="panel-head">
+          <h3>
+            Plans
+            <span className="count">{filtered.length}</span>
+          </h3>
+          {prices.length > 0 && (
+            <SearchInput value={query} onChange={setQuery} placeholder="Search product or interval…" />
+          )}
+        </div>
         {prices.length === 0 ? (
           <div className="empty">No plans yet.</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty">No plans match “{query}”.</div>
         ) : (
           <table>
             <thead>
@@ -163,7 +187,7 @@ export default function Products() {
               </tr>
             </thead>
             <tbody>
-              {prices.map((p) => (
+              {filtered.map((p) => (
                 <tr key={p.id}>
                   <td>{productName(p.product_id)}</td>
                   <td>{formatMoney(p.amount_minor, p.currency)}</td>

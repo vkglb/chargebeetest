@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Subscription, type Customer, type Price, type Product } from "../api/client";
 import { formatDate, formatMoney } from "../lib/format";
+import { useDebounce } from "../lib/useDebounce";
+import SearchInput from "../components/SearchInput";
 
 export default function Subscriptions() {
   const [subs, setSubs] = useState<Subscription[]>([]);
@@ -11,6 +13,8 @@ export default function Subscriptions() {
   const [priceId, setPriceId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const q = useDebounce(query).trim().toLowerCase();
 
   async function load() {
     const [s, c, pr, p] = await Promise.all([
@@ -56,6 +60,16 @@ export default function Subscriptions() {
   };
 
   const canCreate = customers.length > 0 && prices.length > 0;
+
+  const filtered = useMemo(() => {
+    if (!q) return subs;
+    return subs.filter((s) =>
+      [customerEmail(s.customer_id), priceLabel(s.price_id), s.status].some((f) =>
+        f.toLowerCase().includes(q),
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subs, q, customers, prices, products]);
 
   return (
     <div>
@@ -111,9 +125,23 @@ export default function Subscriptions() {
       </div>
 
       <div className="panel">
-        <h3>All subscriptions</h3>
+        <div className="panel-head">
+          <h3>
+            All subscriptions
+            <span className="count">{filtered.length}</span>
+          </h3>
+          {subs.length > 0 && (
+            <SearchInput
+              value={query}
+              onChange={setQuery}
+              placeholder="Search customer, plan or status…"
+            />
+          )}
+        </div>
         {subs.length === 0 ? (
           <div className="empty">No subscriptions yet.</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty">No subscriptions match “{query}”.</div>
         ) : (
           <table>
             <thead>
@@ -126,7 +154,7 @@ export default function Subscriptions() {
               </tr>
             </thead>
             <tbody>
-              {subs.map((s) => (
+              {filtered.map((s) => (
                 <tr key={s.id}>
                   <td>{customerEmail(s.customer_id)}</td>
                   <td>{priceLabel(s.price_id)}</td>

@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Invoice, type Customer } from "../api/client";
 import { formatMoney, formatDate } from "../lib/format";
+import { useDebounce } from "../lib/useDebounce";
+import SearchInput from "../components/SearchInput";
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const q = useDebounce(query).trim().toLowerCase();
 
   async function load() {
     const [inv, cust] = await Promise.all([
@@ -22,6 +26,14 @@ export default function Invoices() {
   const customerEmail = (id: string) =>
     customers.find((c) => c.id === id)?.email ?? id.slice(0, 8);
 
+  const filtered = useMemo(() => {
+    if (!q) return invoices;
+    return invoices.filter((i) =>
+      [i.id, customerEmail(i.customer_id), i.status].some((f) => f.toLowerCase().includes(q)),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices, q, customers]);
+
   return (
     <div>
       <div className="page-head">
@@ -34,8 +46,19 @@ export default function Invoices() {
       {error && <div className="error">{error}</div>}
 
       <div className="panel">
+        <div className="panel-head">
+          <h3>
+            All invoices
+            <span className="count">{filtered.length}</span>
+          </h3>
+          {invoices.length > 0 && (
+            <SearchInput value={query} onChange={setQuery} placeholder="Search id, customer or status…" />
+          )}
+        </div>
         {invoices.length === 0 ? (
           <div className="empty">No invoices yet. They're created when subscriptions bill.</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty">No invoices match “{query}”.</div>
         ) : (
           <table>
             <thead>
@@ -49,7 +72,7 @@ export default function Invoices() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map((i) => (
+              {filtered.map((i) => (
                 <tr key={i.id}>
                   <td className="mono">{i.id.slice(0, 8)}…</td>
                   <td>{customerEmail(i.customer_id)}</td>

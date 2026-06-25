@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Coupon } from "../api/client";
 import { formatMoney } from "../lib/format";
+import { useDebounce } from "../lib/useDebounce";
+import SearchInput from "../components/SearchInput";
 
 export default function Coupons() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -9,6 +11,8 @@ export default function Coupons() {
   const [value, setValue] = useState("");
   const [maxRedemptions, setMaxRedemptions] = useState("");
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const q = useDebounce(query).trim().toLowerCase();
 
   async function load() {
     setCoupons((await api.get<Coupon[]>("/v1/coupons")) ?? []);
@@ -16,6 +20,13 @@ export default function Coupons() {
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, []);
+
+  const filtered = useMemo(() => {
+    if (!q) return coupons;
+    return coupons.filter((c) =>
+      [c.code, c.discount_type].some((f) => f.toLowerCase().includes(q)),
+    );
+  }, [coupons, q]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -98,9 +109,19 @@ export default function Coupons() {
       </div>
 
       <div className="panel">
-        <h3>All coupons</h3>
+        <div className="panel-head">
+          <h3>
+            All coupons
+            <span className="count">{filtered.length}</span>
+          </h3>
+          {coupons.length > 0 && (
+            <SearchInput value={query} onChange={setQuery} placeholder="Search code or type…" />
+          )}
+        </div>
         {coupons.length === 0 ? (
           <div className="empty">No coupons yet.</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty">No coupons match “{query}”.</div>
         ) : (
           <table>
             <thead>
@@ -112,7 +133,7 @@ export default function Coupons() {
               </tr>
             </thead>
             <tbody>
-              {coupons.map((c) => (
+              {filtered.map((c) => (
                 <tr key={c.id}>
                   <td className="mono" style={{ color: "var(--text)" }}>{c.code}</td>
                   <td>{displayValue(c)}</td>
