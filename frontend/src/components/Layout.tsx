@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { getMode, setMode, type Mode } from "../api/client";
+import Tour, { tourDone } from "./Tour";
 
 const navGroups = [
   {
@@ -37,6 +39,7 @@ const navGroups = [
 export default function Layout() {
   const { logout, merchantId, isGuest } = useAuth();
   const navigate = useNavigate();
+  const [showTour, setShowTour] = useState(!tourDone());
 
   function handleLogout() {
     logout();
@@ -53,6 +56,7 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
+      {showTour && <Tour onClose={() => setShowTour(false)} />}
       <aside className="sidebar">
         <div className="brand">⚡ Billing</div>
         {isGuest && <div className="demo-pill">Demo mode</div>}

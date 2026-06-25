@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { resetTour } from "../components/Tour";
 
 // Settings persist locally in demo mode. In real mode these map to backend
 // merchant settings (dunning schedule, tax, business profile) — wired later.
@@ -100,6 +101,21 @@ export default function Settings() {
             </select>
           </div>
         </div>
+      </div>
+
+      <div className="panel">
+        <h3>Help</h3>
+        <p style={{ color: "var(--muted)", marginTop: 0 }}>Replay the welcome walkthrough.</p>
+        <button
+          className="btn-ghost"
+          style={{ width: "auto" }}
+          onClick={() => {
+            resetTour();
+            window.location.reload();
+          }}
+        >
+          Replay product tour
+        </button>
       </div>
 
       <button className="btn btn-sm" onClick={save}>
