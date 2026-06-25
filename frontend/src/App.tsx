@@ -6,6 +6,7 @@ import Signup from "./pages/Signup";
 import Overview from "./pages/Overview";
 import Products from "./pages/Products";
 import Customers from "./pages/Customers";
+import CustomerDetail from "./pages/CustomerDetail";
 import Subscriptions from "./pages/Subscriptions";
 import Gateways from "./pages/Gateways";
 import Coupons from "./pages/Coupons";
@@ -46,6 +47,7 @@ export default function App() {
         <Route index element={<Overview />} />
         <Route path="/products" element={<Products />} />
         <Route path="/customers" element={<Customers />} />
+        <Route path="/customers/:id" element={<CustomerDetail />} />
         <Route path="/subscriptions" element={<Subscriptions />} />
         <Route path="/checkouts" element={<Checkouts />} />
         <Route path="/invoices" element={<Invoices />} />

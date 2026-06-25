@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, type Customer } from "../api/client";
 import { formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
@@ -131,7 +132,11 @@ export default function Customers() {
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.email}</td>
+                  <td>
+                    <Link to={`/customers/${c.id}`} className="row-link">
+                      {c.email}
+                    </Link>
+                  </td>
                   <td>{c.name || "—"}</td>
                   <td>{countryName(c.country)}</td>
                   <td className="mono">{c.gateway_customer_ref || "—"}</td>

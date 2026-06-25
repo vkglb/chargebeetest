@@ -140,6 +140,41 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 }
 .link-btn:hover { text-decoration: underline; }
 .link-btn.danger { color: var(--red); }
+.row-link { color: var(--text); text-decoration: none; }
+.row-link:hover { color: var(--accent); text-decoration: underline; }
+
+/* ── Customer detail ──────────────────────────────────────── */
+.back-link { color: var(--muted); text-decoration: none; font-size: 13px; }
+.back-link:hover { color: var(--accent); }
+.detail-grid { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+.detail-main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.detail-side { display: flex; flex-direction: column; gap: 20px; }
+.insight-row { display: flex; gap: 32px; margin-bottom: 12px; }
+.insight-label { color: var(--muted); font-size: 13px; }
+.insight-value { font-size: 24px; font-weight: 700; margin-top: 2px; }
+.insight-sub { color: var(--muted); font-size: 12px; }
+.sub-list { display: flex; flex-direction: column; gap: 10px; }
+.sub-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.sub-plan { font-weight: 600; }
+.sub-reason { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.sub-meta { text-align: right; white-space: nowrap; }
+.sub-next { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.detail-list { display: grid; grid-template-columns: 1fr; gap: 2px; margin: 0; }
+.detail-list dt { color: var(--muted); font-size: 12px; margin-top: 12px; }
+.detail-list dt:first-child { margin-top: 0; }
+.detail-list dd { margin: 2px 0 0; font-size: 13px; word-break: break-all; }
+@media (max-width: 900px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}
 .btn-danger { background: var(--red); border-color: var(--red); color: #fff; }
 .btn-danger:hover { background: #c0392b; }
 .disconnect-confirm { margin-top: 10px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
