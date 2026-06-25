@@ -100,22 +100,7 @@ export default function Gateways() {
                 </div>
               </div>
 
-              {acct ? (
-                <div className="gateway-status">
-                  <span className="badge active">Connected</span>
-                  <div className="mono" style={{ marginTop: 8 }}>
-                    {acct.account_ref || "—"}
-                  </div>
-                  <div className="mono">since {formatDate(acct.created_at)}</div>
-                  <button
-                    className="btn-ghost"
-                    style={{ marginTop: 10 }}
-                    onClick={() => openForm(g.provider)}
-                  >
-                    Update keys
-                  </button>
-                </div>
-              ) : connecting === g.provider ? (
+              {connecting === g.provider ? (
                 <div className="gateway-form">
                   <label>{g.refLabel}</label>
                   <input
@@ -132,12 +117,27 @@ export default function Gateways() {
                   />
                   <div className="row" style={{ marginTop: 10 }}>
                     <button className="btn btn-sm" onClick={() => connect(g.provider)}>
-                      Save & connect
+                      {acct ? "Save keys" : "Save & connect"}
                     </button>
                     <button className="btn-ghost" onClick={() => setConnecting(null)}>
                       Cancel
                     </button>
                   </div>
+                </div>
+              ) : acct ? (
+                <div className="gateway-status">
+                  <span className="badge active">Connected</span>
+                  <div className="mono" style={{ marginTop: 8 }}>
+                    {acct.account_ref || "—"}
+                  </div>
+                  <div className="mono">since {formatDate(acct.created_at)}</div>
+                  <button
+                    className="btn-ghost"
+                    style={{ marginTop: 10 }}
+                    onClick={() => openForm(g.provider)}
+                  >
+                    Update keys
+                  </button>
                 </div>
               ) : (
                 <button className="btn btn-sm" onClick={() => openForm(g.provider)}>
