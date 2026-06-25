@@ -15,6 +15,7 @@ import {
   type WebhookEndpoint,
   type WebhookDelivery,
   type ApiKey,
+  type BillingRun,
 } from "./client";
 
 // Each mode gets its own isolated dataset, mirroring real test/live separation.
@@ -35,6 +36,7 @@ interface DB {
   webhookDeliveries: WebhookDelivery[];
   apiKeys: ApiKey[];
   checkoutSessions: CheckoutMockSession[];
+  billingRuns: BillingRun[];
 }
 
 interface CheckoutMockSession {
@@ -244,6 +246,7 @@ function seed(): DB {
       },
     ],
     checkoutSessions: [],
+    billingRuns: [],
   };
 }
 
@@ -261,6 +264,7 @@ function emptyDB(): DB {
     webhookDeliveries: [],
     apiKeys: [],
     checkoutSessions: [],
+    billingRuns: [],
   };
 }
 
@@ -284,6 +288,7 @@ function load(): DB {
         webhookDeliveries: parsed.webhookDeliveries ?? [],
         apiKeys: parsed.apiKeys ?? [],
         checkoutSessions: parsed.checkoutSessions ?? [],
+        billingRuns: parsed.billingRuns ?? [],
       };
     } catch {
       /* fall through to seed */
@@ -440,6 +445,15 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         s.next_billing_at = daysFromNow(30);
         succeeded++;
       });
+      db.billingRuns.unshift({
+        id: uuid(),
+        mode: getMode(),
+        source: "manual",
+        processed: billable.length,
+        succeeded,
+        failed: 0,
+        created_at: nowISO(),
+      });
       save(db);
       return {
         marked_due: billable.length,
@@ -449,6 +463,9 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         mode: getMode(),
       } as T;
     }
+
+    case "GET /v1/billing-runs":
+      return db.billingRuns as T;
 
     case "GET /v1/products":
       return db.products as T;

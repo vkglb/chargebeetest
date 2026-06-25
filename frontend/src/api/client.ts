@@ -277,6 +277,16 @@ export interface BillRunResult {
   mode: string;
 }
 
+export interface BillingRun {
+  id: string;
+  mode: string;
+  source: string; // manual | scheduler
+  processed: number;
+  succeeded: number;
+  failed: number;
+  created_at: string;
+}
+
 export interface CheckoutSessionCreated {
   id: string;
   url: string;

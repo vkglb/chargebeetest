@@ -57,7 +57,11 @@ type Querier interface {
 	// The merchant's active gateway used for charging, for a given mode.
 	GetPrimaryGatewayAccount(ctx context.Context, arg GetPrimaryGatewayAccountParams) (GatewayAccount, error)
 	GetSubscription(ctx context.Context, arg GetSubscriptionParams) (Subscription, error)
+	// Record the outcome of a billing pass for the run-history chart.
+	InsertBillingRun(ctx context.Context, arg InsertBillingRunParams) (BillingRun, error)
 	ListAPIKeysByMerchant(ctx context.Context, merchantID uuid.UUID) ([]ListAPIKeysByMerchantRow, error)
+	// Recent billing passes for a merchant + mode (newest first).
+	ListBillingRuns(ctx context.Context, arg ListBillingRunsParams) ([]BillingRun, error)
 	ListCouponsByMerchant(ctx context.Context, arg ListCouponsByMerchantParams) ([]Coupon, error)
 	ListCustomersByMerchant(ctx context.Context, arg ListCustomersByMerchantParams) ([]Customer, error)
 	// The scheduler cursor: subscriptions due for billing now (across all modes).

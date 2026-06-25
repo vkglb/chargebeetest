@@ -15,9 +15,14 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { api, type Analytics as AnalyticsData, type MetricDelta } from "../api/client";
+import {
+  api,
+  type Analytics as AnalyticsData,
+  type MetricDelta,
+  type Transaction,
+} from "../api/client";
 import { useRealtime, type LiveEvent } from "../lib/useRealtime";
-import { formatMoney, formatDateTime } from "../lib/format";
+import { formatMoney, formatDateTime, formatDateTimeShort } from "../lib/format";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "#2ecc71",
@@ -61,9 +66,15 @@ export default function Analytics() {
   const [error, setError] = useState("");
   const [feed, setFeed] = useState<LiveEvent[]>([]);
   const [live, setLive] = useState(false);
+  const [recent, setRecent] = useState<Transaction[]>([]);
 
   async function load() {
-    setData(await api.get<AnalyticsData>("/v1/analytics"));
+    const [a, txns] = await Promise.all([
+      api.get<AnalyticsData>("/v1/analytics"),
+      api.get<Transaction[]>("/v1/transactions"),
+    ]);
+    setData(a);
+    setRecent((txns ?? []).slice(0, 8));
   }
   useEffect(() => {
     load().catch((e) => setError(e.message));
@@ -297,26 +308,62 @@ export default function Analytics() {
         </div>
       )}
 
-      <div className="panel">
-        <h3>Live activity</h3>
-        {feed.length === 0 ? (
-          <div className="empty">
-            Waiting for events… create a subscription to see it appear here in real time.
+      <div className="chart-row">
+        <div className="panel" style={{ flex: 1 }}>
+          <div className="panel-head">
+            <h3>Live activity</h3>
+            <span className={live ? "live-pill on" : "live-pill"}>
+              <span className="live-dot" /> {live ? "Live" : "Realtime"}
+            </span>
           </div>
-        ) : (
-          <table>
-            <tbody>
-              {feed.map((e, i) => (
-                <tr key={i}>
-                  <td className="mono" style={{ color: "var(--text)" }}>
-                    {e.type}
-                  </td>
-                  <td className="mono">{formatDateTime(e.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+          {feed.length === 0 ? (
+            <div className="empty">
+              Waiting for events… create a subscription to see it appear here in real time.
+            </div>
+          ) : (
+            <table>
+              <tbody>
+                {feed.map((e, i) => (
+                  <tr key={i}>
+                    <td className="mono" style={{ color: "var(--text)" }}>
+                      {e.type}
+                    </td>
+                    <td className="mono">{formatDateTime(e.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="panel" style={{ flex: 1 }}>
+          <h3>Recent activity</h3>
+          {recent.length === 0 ? (
+            <div className="empty">No activity yet.</div>
+          ) : (
+            <table>
+              <tbody>
+                {recent.map((t) => (
+                  <tr key={t.id}>
+                    <td>
+                      <span
+                        className={`badge ${t.status === "succeeded" ? "paid" : t.status === "failed" ? "cancelled" : "open"}`}
+                      >
+                        {t.status === "succeeded"
+                          ? "Payment received"
+                          : t.status === "failed"
+                            ? "Payment failed"
+                            : t.status}
+                      </span>
+                    </td>
+                    <td style={{ color: "var(--text)" }}>{formatMoney(t.amount_minor, t.currency)}</td>
+                    <td className="mono">{formatDateTimeShort(t.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   );

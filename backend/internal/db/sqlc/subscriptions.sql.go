@@ -147,6 +147,88 @@ func (q *Queries) GetSubscription(ctx context.Context, arg GetSubscriptionParams
 	return i, err
 }
 
+const insertBillingRun = `-- name: InsertBillingRun :one
+INSERT INTO billing_runs (merchant_id, mode, source, processed, succeeded, failed)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, merchant_id, mode, source, processed, succeeded, failed, created_at
+`
+
+type InsertBillingRunParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+	Source     string    `json:"source"`
+	Processed  int32     `json:"processed"`
+	Succeeded  int32     `json:"succeeded"`
+	Failed     int32     `json:"failed"`
+}
+
+// Record the outcome of a billing pass for the run-history chart.
+func (q *Queries) InsertBillingRun(ctx context.Context, arg InsertBillingRunParams) (BillingRun, error) {
+	row := q.db.QueryRow(ctx, insertBillingRun,
+		arg.MerchantID,
+		arg.Mode,
+		arg.Source,
+		arg.Processed,
+		arg.Succeeded,
+		arg.Failed,
+	)
+	var i BillingRun
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.Mode,
+		&i.Source,
+		&i.Processed,
+		&i.Succeeded,
+		&i.Failed,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listBillingRuns = `-- name: ListBillingRuns :many
+SELECT id, merchant_id, mode, source, processed, succeeded, failed, created_at FROM billing_runs
+WHERE merchant_id = $1 AND mode = $2
+ORDER BY created_at DESC
+LIMIT $3
+`
+
+type ListBillingRunsParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+	Limit      int32     `json:"limit"`
+}
+
+// Recent billing passes for a merchant + mode (newest first).
+func (q *Queries) ListBillingRuns(ctx context.Context, arg ListBillingRunsParams) ([]BillingRun, error) {
+	rows, err := q.db.Query(ctx, listBillingRuns, arg.MerchantID, arg.Mode, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []BillingRun{}
+	for rows.Next() {
+		var i BillingRun
+		if err := rows.Scan(
+			&i.ID,
+			&i.MerchantID,
+			&i.Mode,
+			&i.Source,
+			&i.Processed,
+			&i.Succeeded,
+			&i.Failed,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDueSubscriptions = `-- name: ListDueSubscriptions :many
 SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode FROM subscriptions
 WHERE status IN ('active', 'past_due')

@@ -41,6 +41,19 @@ UPDATE subscriptions
 SET next_billing_at = now(), updated_at = now()
 WHERE merchant_id = $1 AND mode = $2 AND status IN ('active', 'past_due');
 
+-- name: InsertBillingRun :one
+-- Record the outcome of a billing pass for the run-history chart.
+INSERT INTO billing_runs (merchant_id, mode, source, processed, succeeded, failed)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: ListBillingRuns :many
+-- Recent billing passes for a merchant + mode (newest first).
+SELECT * FROM billing_runs
+WHERE merchant_id = $1 AND mode = $2
+ORDER BY created_at DESC
+LIMIT $3;
+
 -- name: AdvanceSubscriptionPeriod :one
 UPDATE subscriptions
 SET current_period_start = $2,

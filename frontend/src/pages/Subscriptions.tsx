@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
+import {
   api,
   getMode,
   type Subscription,
@@ -7,6 +16,7 @@ import {
   type Price,
   type Product,
   type BillRunResult,
+  type BillingRun,
 } from "../api/client";
 import { formatDateTimeShort, formatMoney } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
@@ -25,6 +35,11 @@ export default function Subscriptions() {
   const q = useDebounce(query).trim().toLowerCase();
   const [billing, setBilling] = useState(false);
   const [billResult, setBillResult] = useState<BillRunResult | null>(null);
+  const [runs, setRuns] = useState<BillingRun[]>([]);
+
+  async function loadRuns() {
+    setRuns((await api.get<BillingRun[]>("/v1/billing-runs")) ?? []);
+  }
 
   async function runBilling() {
     setBilling(true);
@@ -33,7 +48,7 @@ export default function Subscriptions() {
     try {
       const res = await api.post<BillRunResult>("/v1/dev/bill-now");
       setBillResult(res);
-      await load(); // refetch so new invoices / status changes show
+      await Promise.all([load(), loadRuns()]); // refetch data + run history
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -58,8 +73,23 @@ export default function Subscriptions() {
 
   useEffect(() => {
     load().catch((e) => setError(e.message));
+    loadRuns().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Oldest→newest for the history chart, with a compact time label.
+  const runChart = [...runs].reverse().map((r) => ({
+    label: new Date(r.created_at).toLocaleTimeString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }),
+    succeeded: r.succeeded,
+    failed: r.failed,
+    processed: r.processed,
+  }));
 
   async function createSub(e: React.FormEvent) {
     e.preventDefault();
@@ -169,6 +199,28 @@ export default function Subscriptions() {
           {billing ? "Running…" : "Run billing cycle now"}
         </button>
       </div>
+
+      {runs.length > 0 && (
+        <div className="panel">
+          <h3>Billing run history</h3>
+          <p style={{ color: "var(--muted)", marginTop: 0 }}>
+            Each bar is one billing pass — green succeeded, red failed (entered dunning).
+          </p>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={runChart} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#2a2f3a" vertical={false} />
+              <XAxis dataKey="label" stroke="#9aa3b2" fontSize={11} />
+              <YAxis stroke="#9aa3b2" fontSize={11} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ background: "#171a21", border: "1px solid #2a2f3a", borderRadius: 8 }}
+                cursor={{ fill: "rgba(108,92,231,0.1)" }}
+              />
+              <Bar dataKey="succeeded" stackId="r" fill="#2ecc71" radius={[0, 0, 0, 0]} name="Succeeded" />
+              <Bar dataKey="failed" stackId="r" fill="#e74c3c" radius={[4, 4, 0, 0]} name="Failed" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <div className="panel">
         <div className="panel-head">

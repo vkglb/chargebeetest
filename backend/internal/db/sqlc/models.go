@@ -22,6 +22,17 @@ type ApiKey struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type BillingRun struct {
+	ID         uuid.UUID          `json:"id"`
+	MerchantID uuid.UUID          `json:"merchant_id"`
+	Mode       string             `json:"mode"`
+	Source     string             `json:"source"`
+	Processed  int32              `json:"processed"`
+	Succeeded  int32              `json:"succeeded"`
+	Failed     int32              `json:"failed"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type CheckoutSession struct {
 	ID             uuid.UUID          `json:"id"`
 	MerchantID     uuid.UUID          `json:"merchant_id"`

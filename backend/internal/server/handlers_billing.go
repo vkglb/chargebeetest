@@ -73,6 +73,14 @@ func (s *Server) handleBillNow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Record the run so the dashboard can chart when billing ran and its outcome.
+	if _, err := s.q.InsertBillingRun(ctx, sqlc.InsertBillingRunParams{
+		MerchantID: mid, Mode: md, Source: "manual",
+		Processed: int32(sum.Processed), Succeeded: int32(sum.Succeeded), Failed: int32(sum.Failed),
+	}); err != nil {
+		s.logger.Error("bill-now: record run", "error", err)
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"marked_due": markedDue,
 		"processed":  sum.Processed,
@@ -80,4 +88,19 @@ func (s *Server) handleBillNow(w http.ResponseWriter, r *http.Request) {
 		"failed":     sum.Failed,
 		"mode":       md,
 	})
+}
+
+// handleListBillingRuns returns the recent billing passes for the run-history
+// chart, scoped to the current merchant + mode.
+func (s *Server) handleListBillingRuns(w http.ResponseWriter, r *http.Request) {
+	runs, err := s.q.ListBillingRuns(r.Context(), sqlc.ListBillingRunsParams{
+		MerchantID: merchantID(r),
+		Mode:       mode(r),
+		Limit:      30,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not list billing runs")
+		return
+	}
+	writeJSON(w, http.StatusOK, runs)
 }
