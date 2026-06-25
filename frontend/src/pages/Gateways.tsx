@@ -39,6 +39,7 @@ export default function Gateways() {
   const [accounts, setAccounts] = useState<GatewayAccount[]>([]);
   const [error, setError] = useState("");
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState<string | null>(null);
   const [accountRef, setAccountRef] = useState("");
   const [secretKey, setSecretKey] = useState("");
 
@@ -70,6 +71,17 @@ export default function Gateways() {
       setConnecting(null);
       setAccountRef("");
       setSecretKey("");
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function disconnect(provider: string) {
+    setError("");
+    try {
+      await api.del(`/v1/gateways/${provider}`);
+      setConfirmDisconnect(null);
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -131,13 +143,34 @@ export default function Gateways() {
                     {acct.account_ref || "—"}
                   </div>
                   <div className="mono">since {formatDate(acct.created_at)}</div>
-                  <button
-                    className="btn-ghost"
-                    style={{ marginTop: 10 }}
-                    onClick={() => openForm(g.provider)}
-                  >
-                    Update keys
-                  </button>
+                  {confirmDisconnect === g.provider ? (
+                    <div className="disconnect-confirm">
+                      <span>Disconnect {g.name}? Charges through it will stop.</span>
+                      <div className="row" style={{ marginTop: 8 }}>
+                        <button className="btn btn-sm btn-danger" onClick={() => disconnect(g.provider)}>
+                          Yes, disconnect
+                        </button>
+                        <button className="btn-ghost" onClick={() => setConfirmDisconnect(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="row" style={{ marginTop: 10 }}>
+                      <button className="btn-ghost" onClick={() => openForm(g.provider)}>
+                        Update keys
+                      </button>
+                      <button
+                        className="btn-ghost btn-ghost-danger"
+                        onClick={() => {
+                          setConnecting(null);
+                          setConfirmDisconnect(g.provider);
+                        }}
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <button className="btn btn-sm" onClick={() => openForm(g.provider)}>

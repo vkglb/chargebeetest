@@ -24,6 +24,11 @@ DO UPDATE SET account_ref = EXCLUDED.account_ref,
               status = 'connected'
 RETURNING id, merchant_id, mode, provider, account_ref, status, created_at;
 
+-- name: DeleteGatewayAccount :execrows
+-- Disconnect a gateway for a merchant + mode (removes the stored credentials).
+DELETE FROM gateway_accounts
+WHERE merchant_id = $1 AND mode = $2 AND provider = $3;
+
 -- name: CreateInvoice :one
 INSERT INTO invoices (
     merchant_id, mode, customer_id, subscription_id, status, currency,

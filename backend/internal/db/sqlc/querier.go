@@ -36,6 +36,8 @@ type Querier interface {
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error)
 	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
+	// Disconnect a gateway for a merchant + mode (removes the stored credentials).
+	DeleteGatewayAccount(ctx context.Context, arg DeleteGatewayAccountParams) (int64, error)
 	DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error
 	GetAPIKeyByPrefix(ctx context.Context, prefix string) (ApiKey, error)
 	GetCheckoutSession(ctx context.Context, id uuid.UUID) (CheckoutSession, error)

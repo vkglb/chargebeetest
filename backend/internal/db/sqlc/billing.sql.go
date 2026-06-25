@@ -200,6 +200,26 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 	return i, err
 }
 
+const deleteGatewayAccount = `-- name: DeleteGatewayAccount :execrows
+DELETE FROM gateway_accounts
+WHERE merchant_id = $1 AND mode = $2 AND provider = $3
+`
+
+type DeleteGatewayAccountParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+	Provider   string    `json:"provider"`
+}
+
+// Disconnect a gateway for a merchant + mode (removes the stored credentials).
+func (q *Queries) DeleteGatewayAccount(ctx context.Context, arg DeleteGatewayAccountParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteGatewayAccount, arg.MerchantID, arg.Mode, arg.Provider)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getGatewayAccount = `-- name: GetGatewayAccount :one
 SELECT id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at, mode FROM gateway_accounts
 WHERE merchant_id = $1 AND mode = $2 AND provider = $3

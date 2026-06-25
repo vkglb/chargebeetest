@@ -124,6 +124,7 @@ func (s *Server) routes() {
 
 			r.Get("/gateways", s.handleListGateways)
 			r.Post("/gateways", s.handleConnectGateway)
+			r.Delete("/gateways/{provider}", s.handleDisconnectGateway)
 
 			r.Post("/coupons", s.handleCreateCoupon)
 			r.Get("/coupons", s.handleListCoupons)

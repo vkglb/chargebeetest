@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 )
 
@@ -58,4 +60,29 @@ func (s *Server) handleConnectGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, account)
+}
+
+// handleDisconnectGateway removes a merchant's stored credentials for a provider
+// in the current mode. Test and Live disconnections are independent.
+func (s *Server) handleDisconnectGateway(w http.ResponseWriter, r *http.Request) {
+	provider := chi.URLParam(r, "provider")
+	if provider == "" {
+		writeError(w, http.StatusBadRequest, "provider required")
+		return
+	}
+	n, err := s.q.DeleteGatewayAccount(r.Context(), sqlc.DeleteGatewayAccountParams{
+		MerchantID: merchantID(r),
+		Mode:       mode(r),
+		Provider:   provider,
+	})
+	if err != nil {
+		s.logger.Error("disconnect gateway", "error", err)
+		writeError(w, http.StatusInternalServerError, "could not disconnect gateway")
+		return
+	}
+	if n == 0 {
+		writeError(w, http.StatusNotFound, "gateway not connected")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "disconnected", "provider": provider})
 }

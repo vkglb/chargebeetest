@@ -94,6 +94,10 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
   width: 100%;
 }
 .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+.btn-ghost-danger:hover { color: var(--red); border-color: var(--red); }
+.btn-danger { background: var(--red); border-color: var(--red); color: #fff; }
+.btn-danger:hover { background: #c0392b; }
+.disconnect-confirm { margin-top: 10px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 .btn-sm {
   width: auto;
   margin: 0;

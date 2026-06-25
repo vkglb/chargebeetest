@@ -698,6 +698,12 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         save(db);
         return undefined as T;
       }
+      if (method === "DELETE" && path.startsWith("/v1/gateways/")) {
+        const provider = path.split("/").pop();
+        db.gateways = db.gateways.filter((g) => g.provider !== provider);
+        save(db);
+        return { status: "disconnected", provider } as T;
+      }
       throw new Error(`mock: unhandled ${key}`);
   }
 }
