@@ -27,7 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 // Percentage change vs the previous period. Up is good (green) for every metric
 // on this dashboard; a brand-new value (no prior) is shown as "new".
-function DeltaBadge({ d }: { d?: MetricDelta }) {
+function DeltaBadge({ d, caption = "vs last 30d" }: { d?: MetricDelta; caption?: string }) {
   if (!d) return null;
   const { current, previous } = d;
   let dir: "up" | "down" | "flat" = "flat";
@@ -49,7 +49,7 @@ function DeltaBadge({ d }: { d?: MetricDelta }) {
     <div className={`delta ${dir}`}>
       <span>{arrow}</span>
       <span>{label}</span>
-      <span className="delta-cap">vs last 30d</span>
+      <span className="delta-cap">{caption}</span>
     </div>
   );
 }
@@ -76,6 +76,15 @@ export default function Analytics() {
 
   const fmtDay = (d: string) => d.slice(5); // MM-DD
   const currency = "USD";
+
+  // "Today" is the last point of each daily series; "yesterday" the one before.
+  const revSeries = data?.revenue_by_day ?? [];
+  const subSeriesData = data?.subscriptions_by_day ?? [];
+  const last = <T,>(a: T[], n: number) => a[a.length - n];
+  const revToday = last(revSeries, 1)?.value ?? 0;
+  const revYesterday = last(revSeries, 2)?.value ?? 0;
+  const subsToday = last(subSeriesData, 1)?.value ?? 0;
+  const subsYesterday = last(subSeriesData, 2)?.value ?? 0;
 
   return (
     <div>
@@ -115,6 +124,22 @@ export default function Analytics() {
           <DeltaBadge d={data?.deltas?.customers} />
         </div>
       </div>
+
+      {data && (
+        <div className="today-strip">
+          <span className="today-title">Today</span>
+          <div className="today-chip">
+            <span className="today-label">Revenue</span>
+            <span className="today-val">{formatMoney(revToday, currency)}</span>
+            <DeltaBadge d={{ current: revToday, previous: revYesterday }} caption="vs yesterday" />
+          </div>
+          <div className="today-chip">
+            <span className="today-label">New subscriptions</span>
+            <span className="today-val">{subsToday}</span>
+            <DeltaBadge d={{ current: subsToday, previous: subsYesterday }} caption="vs yesterday" />
+          </div>
+        </div>
+      )}
 
       <div className="panel">
         <h3>Revenue — last 30 days</h3>

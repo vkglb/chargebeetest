@@ -267,6 +267,30 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .delta .delta-cap { color: var(--muted); font-weight: 400; font-size: 11.5px; }
 td .delta { margin-top: 0; }
 
+/* "Today so far" strip */
+.today-strip {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+.today-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+.today-chip { display: flex; align-items: baseline; gap: 10px; }
+.today-chip .today-label { color: var(--muted); font-size: 13px; }
+.today-chip .today-val { font-size: 18px; font-weight: 700; }
+.today-chip .delta { margin-top: 0; }
+
 /* ── Charts ───────────────────────────────────────────────── */
 .chart-row { display: flex; gap: 20px; }
 .chart-row > .panel { margin-bottom: 20px; min-width: 0; }
