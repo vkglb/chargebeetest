@@ -62,6 +62,7 @@ type Customer struct {
 	Metadata           []byte             `json:"metadata"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	Mode               string             `json:"mode"`
+	Country            string             `json:"country"`
 }
 
 type DunningAttempt struct {

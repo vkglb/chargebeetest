@@ -1,6 +1,6 @@
 -- name: CreateCustomer :one
-INSERT INTO customers (merchant_id, mode, email, name, gateway_customer_ref)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO customers (merchant_id, mode, email, name, gateway_customer_ref, country)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: GetCustomer :one

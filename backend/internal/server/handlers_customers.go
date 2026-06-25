@@ -10,6 +10,7 @@ type createCustomerRequest struct {
 	Email              string `json:"email"`
 	Name               string `json:"name"`
 	GatewayCustomerRef string `json:"gateway_customer_ref"`
+	Country            string `json:"country"`
 }
 
 func (s *Server) handleCreateCustomer(w http.ResponseWriter, r *http.Request) {
@@ -24,6 +25,7 @@ func (s *Server) handleCreateCustomer(w http.ResponseWriter, r *http.Request) {
 		Email:              req.Email,
 		Name:               pgText(req.Name),
 		GatewayCustomerRef: pgText(req.GatewayCustomerRef),
+		Country:            req.Country,
 	})
 	if err != nil {
 		writeError(w, http.StatusConflict, "could not create customer (email may already exist)")

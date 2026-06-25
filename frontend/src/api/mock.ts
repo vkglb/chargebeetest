@@ -97,6 +97,7 @@ function seed(): DB {
     email: "jane@acme.com",
     name: "Jane Doe",
     gateway_customer_ref: "cus_demo_jane",
+    country: "US",
     created_at: nowISO(),
   };
   const sam: Customer = {
@@ -104,6 +105,7 @@ function seed(): DB {
     email: "sam@globex.com",
     name: "Sam Park",
     gateway_customer_ref: null,
+    country: "GB",
     created_at: nowISO(),
   };
   const janeSub: Subscription = {
@@ -489,6 +491,7 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         email: body.email,
         name: body.name || null,
         gateway_customer_ref: body.gateway_customer_ref || null,
+        country: body.country || "",
         created_at: nowISO(),
       };
       db.customers.unshift(c);

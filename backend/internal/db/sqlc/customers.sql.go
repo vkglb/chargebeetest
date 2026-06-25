@@ -13,9 +13,9 @@ import (
 )
 
 const createCustomer = `-- name: CreateCustomer :one
-INSERT INTO customers (merchant_id, mode, email, name, gateway_customer_ref)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode
+INSERT INTO customers (merchant_id, mode, email, name, gateway_customer_ref, country)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode, country
 `
 
 type CreateCustomerParams struct {
@@ -24,6 +24,7 @@ type CreateCustomerParams struct {
 	Email              string      `json:"email"`
 	Name               pgtype.Text `json:"name"`
 	GatewayCustomerRef pgtype.Text `json:"gateway_customer_ref"`
+	Country            string      `json:"country"`
 }
 
 func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error) {
@@ -33,6 +34,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		arg.Email,
 		arg.Name,
 		arg.GatewayCustomerRef,
+		arg.Country,
 	)
 	var i Customer
 	err := row.Scan(
@@ -44,6 +46,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.Country,
 	)
 	return i, err
 }
@@ -97,7 +100,7 @@ func (q *Queries) CreatePaymentMethod(ctx context.Context, arg CreatePaymentMeth
 }
 
 const getCustomer = `-- name: GetCustomer :one
-SELECT id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode FROM customers
+SELECT id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode, country FROM customers
 WHERE id = $1 AND merchant_id = $2
 `
 
@@ -118,6 +121,7 @@ func (q *Queries) GetCustomer(ctx context.Context, arg GetCustomerParams) (Custo
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.Country,
 	)
 	return i, err
 }
@@ -172,7 +176,7 @@ func (q *Queries) GetPaymentMethod(ctx context.Context, id uuid.UUID) (PaymentMe
 }
 
 const listCustomersByMerchant = `-- name: ListCustomersByMerchant :many
-SELECT id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode FROM customers
+SELECT id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode, country FROM customers
 WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $4
@@ -208,6 +212,7 @@ func (q *Queries) ListCustomersByMerchant(ctx context.Context, arg ListCustomers
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.Mode,
+			&i.Country,
 		); err != nil {
 			return nil, err
 		}
@@ -223,7 +228,7 @@ const setCustomerGatewayRef = `-- name: SetCustomerGatewayRef :one
 UPDATE customers
 SET gateway_customer_ref = $2
 WHERE id = $1
-RETURNING id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode
+RETURNING id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode, country
 `
 
 type SetCustomerGatewayRefParams struct {
@@ -243,6 +248,7 @@ func (q *Queries) SetCustomerGatewayRef(ctx context.Context, arg SetCustomerGate
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.Country,
 	)
 	return i, err
 }

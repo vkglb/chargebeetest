@@ -125,6 +125,7 @@ export interface Customer {
   email: string;
   name: string | null;
   gateway_customer_ref: string | null;
+  country?: string; // ISO 3166-1 alpha-2, e.g. "US"
   created_at: string;
 }
 

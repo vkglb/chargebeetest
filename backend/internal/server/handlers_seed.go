@@ -69,12 +69,14 @@ func (s *Server) handleSeed(w http.ResponseWriter, r *http.Request) {
 
 	// ── Customers + subscriptions (varied statuses) ──────────
 	names := []string{"Jane Doe", "Sam Park", "Acme Corp", "Globex", "Initech", "Umbrella", "Hooli", "Stark Inc"}
+	countries := []string{"US", "GB", "US", "CA", "IN", "DE", "AU", "US"}
 	statuses := []string{"active", "active", "active", "trialing", "past_due", "cancelled"}
 	for i, name := range names {
 		email := fmt.Sprintf("user%d+%s@example.com", i, uuid.NewString()[:6])
 		cust, err := s.q.CreateCustomer(ctx, sqlc.CreateCustomerParams{
 			MerchantID: mid, Mode: md, Email: email, Name: pgText(name),
 			GatewayCustomerRef: pgText("cus_sbx_" + uuid.NewString()[:12]),
+			Country:            countries[i%len(countries)],
 		})
 		if err != nil {
 			continue

@@ -3,12 +3,14 @@ import { api, type Customer } from "../api/client";
 import { formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+import { COUNTRIES, countryName } from "../lib/countries";
 
 export default function Customers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [gatewayRef, setGatewayRef] = useState("");
+  const [country, setCountry] = useState("US");
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const q = useDebounce(query).trim().toLowerCase();
@@ -16,7 +18,9 @@ export default function Customers() {
   const filtered = useMemo(() => {
     if (!q) return customers;
     return customers.filter((c) =>
-      [c.email, c.name, c.gateway_customer_ref].some((f) => f?.toLowerCase().includes(q)),
+      [c.email, c.name, c.gateway_customer_ref, countryName(c.country)].some((f) =>
+        f?.toLowerCase().includes(q),
+      ),
     );
   }, [customers, q]);
 
@@ -36,6 +40,7 @@ export default function Customers() {
         email,
         name,
         gateway_customer_ref: gatewayRef,
+        country,
       });
       setEmail("");
       setName("");
@@ -75,6 +80,16 @@ export default function Customers() {
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
           </div>
           <div>
+            <label>Country</label>
+            <select value={country} onChange={(e) => setCountry(e.target.value)}>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label>Gateway reference (optional)</label>
             <input
               value={gatewayRef}
@@ -108,6 +123,7 @@ export default function Customers() {
               <tr>
                 <th>Email</th>
                 <th>Name</th>
+                <th>Country</th>
                 <th>Reference</th>
                 <th>Joined</th>
               </tr>
@@ -117,6 +133,7 @@ export default function Customers() {
                 <tr key={c.id}>
                   <td>{c.email}</td>
                   <td>{c.name || "—"}</td>
+                  <td>{countryName(c.country)}</td>
                   <td className="mono">{c.gateway_customer_ref || "—"}</td>
                   <td>{formatDateTimeShort(c.created_at)}</td>
                 </tr>
