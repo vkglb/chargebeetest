@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/client";
+import { slugify } from "../lib/format";
 
 export default function Signup() {
   const { signup, loginAsGuest } = useAuth();
@@ -36,8 +37,18 @@ export default function Signup() {
         <h1>Create your business</h1>
         <p className="sub">Start billing your customers in minutes</p>
 
-        <label>Business name</label>
-        <input value={merchantName} onChange={(e) => setMerchantName(e.target.value)} required />
+        <label>Site name</label>
+        <input
+          value={merchantName}
+          onChange={(e) => setMerchantName(e.target.value)}
+          placeholder="Acme Store"
+          required
+        />
+        {merchantName.trim() && (
+          <div className="subdomain-preview mono">
+            {slugify(merchantName) || "your-site"}.billing.app
+          </div>
+        )}
 
         <label>Work email</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

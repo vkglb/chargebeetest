@@ -41,6 +41,11 @@ body {
 .auth-card .sub { color: var(--muted); margin: 0 0 24px; }
 .auth-switch { color: var(--muted); margin-top: 16px; text-align: center; }
 .auth-switch a { color: var(--accent); text-decoration: none; }
+.subdomain-preview {
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 12px;
+}
 
 /* ── Forms ────────────────────────────────────────────────── */
 label { display: block; margin: 12px 0 6px; color: var(--muted); font-size: 13px; }

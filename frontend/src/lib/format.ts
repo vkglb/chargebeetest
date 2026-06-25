@@ -7,6 +7,17 @@ export function formatMoney(amountMinor: number, currency: string): string {
   }).format(amountMinor / 100);
 }
 
+// Turn a site/business name into a subdomain-style slug, e.g.
+// "Acme Store" → "acme-store".
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
 export function formatDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);

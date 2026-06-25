@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, setMode, type Site, type Mode } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { slugify } from "../lib/format";
 
 // Chargebee-style "Select a site" screen shown after login. Each site can be
 // entered in Test or Live mode.
@@ -52,7 +53,7 @@ export default function Sites() {
             <div className="site-card" key={site.id}>
               <div>
                 <div className="site-name">{site.name}</div>
-                <div className="site-sub mono">{site.id.slice(0, 12)}…</div>
+                <div className="site-sub mono">{slugify(site.name) || "site"}.billing.app</div>
               </div>
               <div className="site-actions">
                 <button className="btn-ghost site-btn" onClick={() => enter("test")}>
