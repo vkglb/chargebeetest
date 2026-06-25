@@ -4,6 +4,15 @@ import { useAuth } from "../auth/AuthContext";
 import { getMode, setMode, type Mode } from "../api/client";
 import Tour, { tourDone } from "./Tour";
 
+// Maps nav labels to tour anchor ids (driver.js highlights these elements).
+const TOUR_IDS: Record<string, string> = {
+  "Products & Plans": "products",
+  Subscriptions: "subscriptions",
+  "Hosted Checkout": "checkout",
+  Webhooks: "webhooks",
+  "API Keys": "apikeys",
+};
+
 const navGroups = [
   {
     title: "",
@@ -84,6 +93,7 @@ export default function Layout() {
                   key={item.to}
                   to={item.to}
                   end={"end" in item ? item.end : false}
+                  data-tour={TOUR_IDS[item.label]}
                   className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}
                 >
                   {item.label}

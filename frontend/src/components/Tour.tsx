@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect } from "react";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 const TOUR_KEY = "chargeebee_tour_done";
 
@@ -9,96 +11,102 @@ export function resetTour() {
   localStorage.removeItem(TOUR_KEY);
 }
 
-interface Step {
-  icon: string;
-  title: string;
-  body: string;
-}
-
-const STEPS: Step[] = [
-  {
-    icon: "👋",
-    title: "Welcome to your billing dashboard",
-    body: "A quick 30-second tour of what you can do here. You can skip anytime.",
-  },
-  {
-    icon: "🧪",
-    title: "Test & Live modes",
-    body: "Use the Test/Live toggle (top-left) to switch worlds. Test is a sandbox with separate data; Live is real money. They never mix.",
-  },
-  {
-    icon: "📦",
-    title: "Products & Plans",
-    body: "Define what you sell and how it's priced — monthly, yearly, with trials. Plans are what customers subscribe to.",
-  },
-  {
-    icon: "👥",
-    title: "Customers & Subscriptions",
-    body: "Add customers and subscribe them to a plan. The billing engine charges them automatically each cycle and handles failed-payment retries (dunning).",
-  },
-  {
-    icon: "🛒",
-    title: "Hosted Checkout",
-    body: "Generate a branded payment link — or call the API — so customers can subscribe and pay. Cards are vaulted by the gateway; you stay out of PCI scope.",
-  },
-  {
-    icon: "🔌",
-    title: "Developers",
-    body: "Connect your gateway (Stripe, Razorpay, …), set up signed Webhooks, and create API keys. Full reference lives in API Docs.",
-  },
-  {
-    icon: "🎉",
-    title: "You're all set!",
-    body: "Start by adding a product, then a plan, then a customer. You can replay this tour anytime from Settings.",
-  },
-];
-
+// Spotlight product tour: dims the screen and highlights real UI elements with
+// popovers, like the onboarding tours on polished SaaS apps.
 export default function Tour({ onClose }: { onClose: () => void }) {
-  const [i, setI] = useState(0);
-  const step = STEPS[i];
-  const isLast = i === STEPS.length - 1;
+  useEffect(() => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      localStorage.setItem(TOUR_KEY, "1");
+      onClose();
+    };
 
-  function finish() {
-    localStorage.setItem(TOUR_KEY, "1");
-    onClose();
-  }
+    const d = driver({
+      showProgress: true,
+      animate: true,
+      overlayColor: "rgba(0,0,0,0.75)",
+      nextBtnText: "Next →",
+      prevBtnText: "← Back",
+      doneBtnText: "Get started",
+      onDestroyed: finish,
+      steps: [
+        {
+          popover: {
+            title: "👋 Welcome to your billing dashboard",
+            description:
+              "A quick tour of what you can do here. You can skip anytime with Esc or the × button.",
+          },
+        },
+        {
+          element: ".mode-toggle",
+          popover: {
+            title: "🧪 Test & Live modes",
+            description:
+              "Switch between a safe sandbox (Test) and real money (Live). Each has its own data and gateway keys — they never mix.",
+            side: "right",
+            align: "start",
+          },
+        },
+        {
+          element: '[data-tour="products"]',
+          popover: {
+            title: "📦 Products & Plans",
+            description: "Define what you sell and how it's priced — monthly, yearly, with trials.",
+            side: "right",
+            align: "start",
+          },
+        },
+        {
+          element: '[data-tour="subscriptions"]',
+          popover: {
+            title: "👥 Subscriptions",
+            description:
+              "Subscribe customers to a plan. The billing engine charges them each cycle and retries failed payments (dunning).",
+            side: "right",
+            align: "start",
+          },
+        },
+        {
+          element: '[data-tour="checkout"]',
+          popover: {
+            title: "🛒 Hosted Checkout",
+            description:
+              "Generate a branded payment link or use the API. Cards are vaulted by the gateway — you stay out of PCI scope.",
+            side: "right",
+            align: "start",
+          },
+        },
+        {
+          element: '[data-tour="webhooks"]',
+          popover: {
+            title: "🔌 Webhooks & API",
+            description:
+              "Get signed events in real time, manage API keys, and read the full reference in API Docs.",
+            side: "right",
+            align: "start",
+          },
+        },
+        {
+          popover: {
+            title: "🎉 You're all set!",
+            description:
+              "Start by adding a product, then a plan, then a customer. Replay this tour anytime from Settings → Help.",
+          },
+        },
+      ],
+    });
 
-  return (
-    <div className="tour-overlay">
-      <div className="tour-card">
-        <button className="tour-skip" onClick={finish}>
-          Skip tour
-        </button>
+    d.drive();
+    return () => {
+      if (!finished) {
+        finished = true;
+        d.destroy();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-        <div className="tour-icon">{step.icon}</div>
-        <h2 className="tour-title">{step.title}</h2>
-        <p className="tour-body">{step.body}</p>
-
-        <div className="tour-dots">
-          {STEPS.map((_, n) => (
-            <span key={n} className={n === i ? "tour-dot active" : "tour-dot"} />
-          ))}
-        </div>
-
-        <div className="tour-actions">
-          {i > 0 ? (
-            <button className="btn-ghost" style={{ width: "auto" }} onClick={() => setI(i - 1)}>
-              Back
-            </button>
-          ) : (
-            <span />
-          )}
-          {isLast ? (
-            <button className="btn btn-sm" onClick={finish}>
-              Get started
-            </button>
-          ) : (
-            <button className="btn btn-sm" onClick={() => setI(i + 1)}>
-              Next ({i + 1}/{STEPS.length})
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }

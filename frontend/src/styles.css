@@ -339,45 +339,40 @@ tbody tr:hover { background: var(--panel-2); }
 }
 .chip.on { background: var(--accent); border-color: var(--accent); color: white; }
 
-/* ── Product tour ─────────────────────────────────────────── */
-.tour-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(2px);
-  display: grid;
-  place-items: center;
-  z-index: 200;
-  padding: 24px;
+/* ── Product tour (driver.js dark theme) ──────────────────── */
+.driver-popover {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5) !important;
+  max-width: 320px !important;
 }
-.tour-card {
-  position: relative;
-  width: 100%;
-  max-width: 440px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 32px 28px 24px;
-  text-align: center;
+.driver-popover-title {
+  font-size: 16px !important;
+  color: var(--text) !important;
 }
-.tour-skip {
-  position: absolute;
-  top: 14px;
-  right: 16px;
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 13px;
-  cursor: pointer;
+.driver-popover-description {
+  color: var(--muted) !important;
+  line-height: 1.55 !important;
 }
-.tour-skip:hover { color: var(--text); }
-.tour-icon { font-size: 44px; margin-bottom: 8px; }
-.tour-title { margin: 0 0 10px; font-size: 20px; }
-.tour-body { color: var(--muted); line-height: 1.6; margin: 0 0 20px; }
-.tour-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 20px; }
-.tour-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
-.tour-dot.active { background: var(--accent); width: 18px; border-radius: 99px; }
-.tour-actions { display: flex; justify-content: space-between; align-items: center; }
+.driver-popover-progress-text { color: var(--muted) !important; }
+.driver-popover-close-btn { color: var(--muted) !important; }
+.driver-popover-close-btn:hover { color: var(--text) !important; }
+.driver-popover-navigation-btns button {
+  background: var(--panel-2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 7px !important;
+  text-shadow: none !important;
+}
+.driver-popover-navigation-btns button.driver-popover-next-btn {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #fff !important;
+}
+.driver-popover-navigation-btns button:hover { filter: brightness(1.1); }
+.driver-popover-arrow { border-color: var(--panel) !important; }
 
 /* ── Modal ────────────────────────────────────────────────── */
 .modal-overlay {
