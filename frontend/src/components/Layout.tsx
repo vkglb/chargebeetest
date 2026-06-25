@@ -112,6 +112,18 @@ export default function Layout() {
         </div>
       </aside>
       <main className="content">
+        <div className={`mode-banner ${current}`}>
+          <span className="mode-dot" />
+          {current === "live" ? (
+            <span>
+              <strong>LIVE mode</strong> — actions here affect real customers and real money.
+            </span>
+          ) : (
+            <span>
+              <strong>TEST mode</strong> — a sandbox with separate data. No real charges are made.
+            </span>
+          )}
+        </div>
         <Outlet />
       </main>
     </div>
