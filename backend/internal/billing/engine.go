@@ -20,19 +20,25 @@ type CredentialResolver interface {
 	Resolve(ctx context.Context, account sqlc.GatewayAccount) (gateway.Credentials, error)
 }
 
+// Emitter fans an event out to a merchant's subscribed webhook endpoints.
+type Emitter interface {
+	Emit(merchantID uuid.UUID, mode, eventType string, data any)
+}
+
 // Engine runs the recurring-billing loop: find due subscriptions, build an
 // invoice, charge the gateway off-session, and advance or enter dunning.
 type Engine struct {
 	q        *sqlc.Queries
 	registry *gateway.Registry
 	resolve  CredentialResolver
+	emit     Emitter
 	logger   *slog.Logger
 	batch    int32
 }
 
 // NewEngine constructs a billing engine backed by a multi-gateway registry.
-func NewEngine(q *sqlc.Queries, registry *gateway.Registry, resolve CredentialResolver, logger *slog.Logger) *Engine {
-	return &Engine{q: q, registry: registry, resolve: resolve, logger: logger, batch: 100}
+func NewEngine(q *sqlc.Queries, registry *gateway.Registry, resolve CredentialResolver, emit Emitter, logger *slog.Logger) *Engine {
+	return &Engine{q: q, registry: registry, resolve: resolve, emit: emit, logger: logger, batch: 100}
 }
 
 // RunOnce processes one batch of due subscriptions. The scheduler calls this on
@@ -145,9 +151,19 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 		return fmt.Errorf("record transaction: %w", err)
 	}
 
+	e.emit.Emit(sub.MerchantID, sub.Mode, "invoice.created", map[string]any{
+		"invoice_id": inv.ID, "subscription_id": sub.ID, "total_minor": amount, "currency": price.Currency,
+	})
+
 	if res.Status == gateway.ChargeSucceeded {
+		e.emit.Emit(sub.MerchantID, sub.Mode, "payment.succeeded", map[string]any{
+			"subscription_id": sub.ID, "invoice_id": inv.ID, "amount_minor": amount, "currency": price.Currency,
+		})
 		return e.onChargeSucceeded(ctx, sub, inv.ID, periodStart, periodEnd)
 	}
+	e.emit.Emit(sub.MerchantID, sub.Mode, "payment.failed", map[string]any{
+		"subscription_id": sub.ID, "invoice_id": inv.ID, "reason": res.FailureReason,
+	})
 	return e.onChargeFailed(ctx, sub, inv.ID, now)
 }
 

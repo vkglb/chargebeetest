@@ -22,6 +22,7 @@ import (
 	"github.com/chargeebee/platform/internal/gateway/razorpay"
 	"github.com/chargeebee/platform/internal/gateway/stripe"
 	"github.com/chargeebee/platform/internal/server"
+	"github.com/chargeebee/platform/internal/webhooks"
 )
 
 func main() {
@@ -75,13 +76,16 @@ func run() error {
 	)
 	logger.Info("payment gateways registered", "providers", gateways.Providers())
 
+	// Outbound webhook dispatcher (signs + POSTs events, records deliveries).
+	dispatcher := webhooks.New(queries, logger)
+
 	// Billing engine + scheduler (the platform "clock").
-	engine := billing.NewEngine(queries, gateways, billing.PlaintextResolver{}, logger)
+	engine := billing.NewEngine(queries, gateways, billing.PlaintextResolver{}, dispatcher, logger)
 	scheduler := billing.NewScheduler(engine, time.Minute)
 	go scheduler.Run(ctx)
 	logger.Info("billing scheduler started", "interval", "1m")
 
-	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, logger)
+	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, dispatcher, logger)
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           srv.Handler(),

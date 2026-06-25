@@ -11,6 +11,47 @@ import (
 	"github.com/google/uuid"
 )
 
+const createWebhookDelivery = `-- name: CreateWebhookDelivery :one
+INSERT INTO webhook_deliveries (merchant_id, mode, endpoint_id, event_type, payload, status, attempts)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode
+`
+
+type CreateWebhookDeliveryParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+	EndpointID uuid.UUID `json:"endpoint_id"`
+	EventType  string    `json:"event_type"`
+	Payload    []byte    `json:"payload"`
+	Status     string    `json:"status"`
+	Attempts   int32     `json:"attempts"`
+}
+
+func (q *Queries) CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error) {
+	row := q.db.QueryRow(ctx, createWebhookDelivery,
+		arg.MerchantID,
+		arg.Mode,
+		arg.EndpointID,
+		arg.EventType,
+		arg.Payload,
+		arg.Status,
+		arg.Attempts,
+	)
+	var i WebhookDelivery
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.EndpointID,
+		&i.EventType,
+		&i.Payload,
+		&i.Status,
+		&i.Attempts,
+		&i.CreatedAt,
+		&i.Mode,
+	)
+	return i, err
+}
+
 const createWebhookEndpoint = `-- name: CreateWebhookEndpoint :one
 INSERT INTO webhook_endpoints (merchant_id, mode, url, signing_secret, events, enabled)
 VALUES ($1, $2, $3, $4, $5, true)
@@ -60,6 +101,45 @@ type DeleteWebhookEndpointParams struct {
 func (q *Queries) DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error {
 	_, err := q.db.Exec(ctx, deleteWebhookEndpoint, arg.ID, arg.MerchantID)
 	return err
+}
+
+const listEnabledWebhookEndpoints = `-- name: ListEnabledWebhookEndpoints :many
+SELECT id, merchant_id, url, signing_secret, events, enabled, created_at, mode FROM webhook_endpoints
+WHERE merchant_id = $1 AND mode = $2 AND enabled = true
+`
+
+type ListEnabledWebhookEndpointsParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+func (q *Queries) ListEnabledWebhookEndpoints(ctx context.Context, arg ListEnabledWebhookEndpointsParams) ([]WebhookEndpoint, error) {
+	rows, err := q.db.Query(ctx, listEnabledWebhookEndpoints, arg.MerchantID, arg.Mode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WebhookEndpoint{}
+	for rows.Next() {
+		var i WebhookEndpoint
+		if err := rows.Scan(
+			&i.ID,
+			&i.MerchantID,
+			&i.Url,
+			&i.SigningSecret,
+			&i.Events,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.Mode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listWebhookDeliveries = `-- name: ListWebhookDeliveries :many
@@ -143,4 +223,34 @@ func (q *Queries) ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpo
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateWebhookDeliveryResult = `-- name: UpdateWebhookDeliveryResult :one
+UPDATE webhook_deliveries
+SET status = $2, attempts = $3
+WHERE id = $1
+RETURNING id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode
+`
+
+type UpdateWebhookDeliveryResultParams struct {
+	ID       uuid.UUID `json:"id"`
+	Status   string    `json:"status"`
+	Attempts int32     `json:"attempts"`
+}
+
+func (q *Queries) UpdateWebhookDeliveryResult(ctx context.Context, arg UpdateWebhookDeliveryResultParams) (WebhookDelivery, error) {
+	row := q.db.QueryRow(ctx, updateWebhookDeliveryResult, arg.ID, arg.Status, arg.Attempts)
+	var i WebhookDelivery
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.EndpointID,
+		&i.EventType,
+		&i.Payload,
+		&i.Status,
+		&i.Attempts,
+		&i.CreatedAt,
+		&i.Mode,
+	)
+	return i, err
 }

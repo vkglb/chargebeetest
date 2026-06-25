@@ -28,6 +28,7 @@ type Querier interface {
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
+	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error)
 	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
 	DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error
 	GetAPIKeyByPrefix(ctx context.Context, prefix string) (ApiKey, error)
@@ -50,6 +51,7 @@ type Querier interface {
 	ListCustomersByMerchant(ctx context.Context, arg ListCustomersByMerchantParams) ([]Customer, error)
 	// The scheduler cursor: subscriptions due for billing now (across all modes).
 	ListDueSubscriptions(ctx context.Context, limit int32) ([]Subscription, error)
+	ListEnabledWebhookEndpoints(ctx context.Context, arg ListEnabledWebhookEndpointsParams) ([]WebhookEndpoint, error)
 	ListGatewayAccountsByMerchant(ctx context.Context, arg ListGatewayAccountsByMerchantParams) ([]ListGatewayAccountsByMerchantRow, error)
 	ListInvoicesByMerchant(ctx context.Context, arg ListInvoicesByMerchantParams) ([]Invoice, error)
 	ListMerchants(ctx context.Context, arg ListMerchantsParams) ([]Merchant, error)
@@ -66,6 +68,7 @@ type Querier interface {
 	SetSubscriptionStatus(ctx context.Context, arg SetSubscriptionStatusParams) (Subscription, error)
 	TouchAPIKey(ctx context.Context, id uuid.UUID) error
 	UpdateMerchantStatus(ctx context.Context, arg UpdateMerchantStatusParams) (Merchant, error)
+	UpdateWebhookDeliveryResult(ctx context.Context, arg UpdateWebhookDeliveryResultParams) (WebhookDelivery, error)
 	UpsertGatewayAccount(ctx context.Context, arg UpsertGatewayAccountParams) (UpsertGatewayAccountRow, error)
 }
 

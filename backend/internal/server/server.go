@@ -13,6 +13,7 @@ import (
 
 	"github.com/chargeebee/platform/internal/auth"
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
+	"github.com/chargeebee/platform/internal/webhooks"
 )
 
 // Server holds shared dependencies for HTTP handlers.
@@ -23,11 +24,12 @@ type Server struct {
 	logger          *slog.Logger
 	checkoutBaseURL string
 	corsOrigins     string
+	dispatcher      *webhooks.Dispatcher
 	router          chi.Router
 }
 
 // New constructs a Server and registers all routes.
-func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, logger *slog.Logger) *Server {
+func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, dispatcher *webhooks.Dispatcher, logger *slog.Logger) *Server {
 	s := &Server{
 		pool:            pool,
 		q:               sqlc.New(pool),
@@ -35,6 +37,7 @@ func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOri
 		logger:          logger,
 		checkoutBaseURL: checkoutBaseURL,
 		corsOrigins:     corsOrigins,
+		dispatcher:      dispatcher,
 		router:          chi.NewRouter(),
 	}
 	s.routes()
