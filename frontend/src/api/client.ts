@@ -66,7 +66,19 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: any = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Non-JSON body (e.g. a plain-text "404 page not found" from the router,
+      // or an HTML error page from a proxy). Surface it as a clean error.
+      if (!res.ok) {
+        throw new ApiError(res.status, text.trim().slice(0, 200) || res.statusText);
+      }
+      throw new ApiError(res.status, `Unexpected non-JSON response: ${text.trim().slice(0, 120)}`);
+    }
+  }
 
   if (!res.ok) {
     const msg = data?.error ?? res.statusText;
