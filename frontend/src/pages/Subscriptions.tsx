@@ -21,6 +21,7 @@ import {
 import { formatDateTimeShort, formatMoney } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+import { CANCEL_REASONS } from "../lib/subscriptions";
 
 export default function Subscriptions() {
   const [subs, setSubs] = useState<Subscription[]>([]);
@@ -36,6 +37,20 @@ export default function Subscriptions() {
   const [billing, setBilling] = useState(false);
   const [billResult, setBillResult] = useState<BillRunResult | null>(null);
   const [runs, setRuns] = useState<BillingRun[]>([]);
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("customer_request");
+
+  async function cancelSub(id: string) {
+    setError("");
+    try {
+      await api.post(`/v1/subscriptions/${id}/cancel`, { reason: cancelReason });
+      setCancelId(null);
+      setCancelReason("customer_request");
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   async function loadRuns() {
     setRuns((await api.get<BillingRun[]>("/v1/billing-runs")) ?? []);
@@ -249,20 +264,53 @@ export default function Subscriptions() {
                 <th>Status</th>
                 <th>Qty</th>
                 <th>Next billing</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((s) => (
-                <tr key={s.id}>
-                  <td>{customerEmail(s.customer_id)}</td>
-                  <td>{priceLabel(s.price_id)}</td>
-                  <td>
-                    <span className={`badge ${s.status}`}>{s.status}</span>
-                  </td>
-                  <td>{s.quantity}</td>
-                  <td>{formatDateTimeShort(s.next_billing_at)}</td>
-                </tr>
-              ))}
+              {filtered.map((s) => {
+                const cancellable = ["active", "trialing", "past_due"].includes(s.status);
+                return (
+                  <tr key={s.id}>
+                    <td>{customerEmail(s.customer_id)}</td>
+                    <td>{priceLabel(s.price_id)}</td>
+                    <td>
+                      <span className={`badge ${s.status}`}>{s.status}</span>
+                    </td>
+                    <td>{s.quantity}</td>
+                    <td>{formatDateTimeShort(s.next_billing_at)}</td>
+                    <td style={{ textAlign: "right" }}>
+                      {cancelId === s.id ? (
+                        <span className="row-actions">
+                          <select
+                            value={cancelReason}
+                            onChange={(e) => setCancelReason(e.target.value)}
+                            style={{ width: "auto", padding: "4px 8px", fontSize: 13 }}
+                          >
+                            {CANCEL_REASONS.map((r) => (
+                              <option key={r.value} value={r.value}>
+                                {r.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button className="link-btn danger" onClick={() => cancelSub(s.id)}>
+                            Confirm
+                          </button>
+                          <button className="link-btn" onClick={() => setCancelId(null)}>
+                            Cancel
+                          </button>
+                        </span>
+                      ) : cancellable ? (
+                        <button className="link-btn danger" onClick={() => setCancelId(s.id)}>
+                          Cancel
+                        </button>
+                      ) : (
+                        <span style={{ color: "var(--muted)", fontSize: 12 }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

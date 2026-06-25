@@ -208,6 +208,7 @@ type Subscription struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	Mode               string             `json:"mode"`
+	CancelReason       string             `json:"cancel_reason"`
 }
 
 type Transaction struct {

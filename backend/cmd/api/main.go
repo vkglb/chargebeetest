@@ -104,7 +104,7 @@ func run() error {
 	go scheduler.Run(ctx)
 	logger.Info("billing scheduler started", "interval", "1m")
 
-	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, pub, hub, engine, logger)
+	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, pub, hub, engine, dispatcher, logger)
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           srv.Handler(),

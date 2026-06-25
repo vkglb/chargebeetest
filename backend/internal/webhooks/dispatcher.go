@@ -50,6 +50,24 @@ func (d *Dispatcher) Emit(merchantID uuid.UUID, mode, eventType string, data any
 	go d.deliver(merchantID, mode, eventType, data)
 }
 
+// Resend re-delivers a past delivery's stored payload to its endpoint and
+// records a new delivery row, so the resend shows up in the log. It runs
+// synchronously and returns an error if the delivery or endpoint is missing.
+func (d *Dispatcher) Resend(ctx context.Context, merchantID uuid.UUID, deliveryID uuid.UUID) error {
+	prev, err := d.q.GetWebhookDelivery(ctx, sqlc.GetWebhookDeliveryParams{ID: deliveryID, MerchantID: merchantID})
+	if err != nil {
+		return err
+	}
+	ep, err := d.q.GetWebhookEndpoint(ctx, sqlc.GetWebhookEndpointParams{ID: prev.EndpointID, MerchantID: merchantID})
+	if err != nil {
+		return err
+	}
+	// Reuse the original envelope body so the stored signature still verifies.
+	event := Event{ID: "evt_" + uuid.NewString(), Type: prev.EventType}
+	d.send(ctx, ep, event, prev.Payload)
+	return nil
+}
+
 func (d *Dispatcher) deliver(merchantID uuid.UUID, mode, eventType string, data any) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

@@ -21,7 +21,7 @@ SET current_period_start = $2,
     status = 'active',
     updated_at = now()
 WHERE id = $1
-RETURNING id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode
+RETURNING id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason
 `
 
 type AdvanceSubscriptionPeriodParams struct {
@@ -55,6 +55,49 @@ func (q *Queries) AdvanceSubscriptionPeriod(ctx context.Context, arg AdvanceSubs
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Mode,
+		&i.CancelReason,
+	)
+	return i, err
+}
+
+const cancelSubscription = `-- name: CancelSubscription :one
+UPDATE subscriptions
+SET status = 'cancelled',
+    cancel_reason = $3,
+    cancelled_at = now(),
+    next_billing_at = NULL,
+    updated_at = now()
+WHERE id = $1 AND merchant_id = $2
+RETURNING id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason
+`
+
+type CancelSubscriptionParams struct {
+	ID           uuid.UUID `json:"id"`
+	MerchantID   uuid.UUID `json:"merchant_id"`
+	CancelReason string    `json:"cancel_reason"`
+}
+
+// Cancel a subscription with a reason and stop future billing.
+func (q *Queries) CancelSubscription(ctx context.Context, arg CancelSubscriptionParams) (Subscription, error) {
+	row := q.db.QueryRow(ctx, cancelSubscription, arg.ID, arg.MerchantID, arg.CancelReason)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.CustomerID,
+		&i.PriceID,
+		&i.PaymentMethodID,
+		&i.Status,
+		&i.Quantity,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.NextBillingAt,
+		&i.CancelAtPeriodEnd,
+		&i.CancelledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mode,
+		&i.CancelReason,
 	)
 	return i, err
 }
@@ -64,7 +107,7 @@ INSERT INTO subscriptions (
     merchant_id, mode, customer_id, price_id, payment_method_id,
     status, quantity, current_period_start, current_period_end, next_billing_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode
+RETURNING id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason
 `
 
 type CreateSubscriptionParams struct {
@@ -110,12 +153,13 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Mode,
+		&i.CancelReason,
 	)
 	return i, err
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode FROM subscriptions
+SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason FROM subscriptions
 WHERE id = $1 AND merchant_id = $2
 `
 
@@ -143,6 +187,7 @@ func (q *Queries) GetSubscription(ctx context.Context, arg GetSubscriptionParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Mode,
+		&i.CancelReason,
 	)
 	return i, err
 }
@@ -230,7 +275,7 @@ func (q *Queries) ListBillingRuns(ctx context.Context, arg ListBillingRunsParams
 }
 
 const listDueSubscriptions = `-- name: ListDueSubscriptions :many
-SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode FROM subscriptions
+SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason FROM subscriptions
 WHERE status IN ('active', 'past_due')
   AND next_billing_at IS NOT NULL
   AND next_billing_at <= now()
@@ -264,6 +309,7 @@ func (q *Queries) ListDueSubscriptions(ctx context.Context, limit int32) ([]Subs
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Mode,
+			&i.CancelReason,
 		); err != nil {
 			return nil, err
 		}
@@ -276,7 +322,7 @@ func (q *Queries) ListDueSubscriptions(ctx context.Context, limit int32) ([]Subs
 }
 
 const listDueSubscriptionsForMerchant = `-- name: ListDueSubscriptionsForMerchant :many
-SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode FROM subscriptions
+SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason FROM subscriptions
 WHERE merchant_id = $1 AND mode = $2
   AND status IN ('active', 'past_due')
   AND next_billing_at IS NOT NULL
@@ -317,6 +363,7 @@ func (q *Queries) ListDueSubscriptionsForMerchant(ctx context.Context, arg ListD
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Mode,
+			&i.CancelReason,
 		); err != nil {
 			return nil, err
 		}
@@ -329,7 +376,7 @@ func (q *Queries) ListDueSubscriptionsForMerchant(ctx context.Context, arg ListD
 }
 
 const listSubscriptionsByMerchant = `-- name: ListSubscriptionsByMerchant :many
-SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode FROM subscriptions
+SELECT id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason FROM subscriptions
 WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $4
@@ -372,6 +419,7 @@ func (q *Queries) ListSubscriptionsByMerchant(ctx context.Context, arg ListSubsc
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Mode,
+			&i.CancelReason,
 		); err != nil {
 			return nil, err
 		}
@@ -408,7 +456,7 @@ const setSubscriptionStatus = `-- name: SetSubscriptionStatus :one
 UPDATE subscriptions
 SET status = $2, updated_at = now()
 WHERE id = $1 AND merchant_id = $3
-RETURNING id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode
+RETURNING id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason
 `
 
 type SetSubscriptionStatusParams struct {
@@ -436,6 +484,7 @@ func (q *Queries) SetSubscriptionStatus(ctx context.Context, arg SetSubscription
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Mode,
+		&i.CancelReason,
 	)
 	return i, err
 }

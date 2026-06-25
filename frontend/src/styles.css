@@ -175,6 +175,21 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 @media (max-width: 900px) {
   .detail-grid { grid-template-columns: 1fr; }
 }
+.payload-view {
+  background: #0e1116;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #c8d0dd;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  max-height: 320px;
+  overflow-y: auto;
+}
 .btn-danger { background: var(--red); border-color: var(--red); color: #fff; }
 .btn-danger:hover { background: #c0392b; }
 .disconnect-confirm { margin-top: 10px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }

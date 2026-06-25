@@ -22,6 +22,14 @@ LIMIT $3;
 SELECT * FROM webhook_endpoints
 WHERE merchant_id = $1 AND mode = $2 AND enabled = true;
 
+-- name: GetWebhookDelivery :one
+SELECT * FROM webhook_deliveries
+WHERE id = $1 AND merchant_id = $2;
+
+-- name: GetWebhookEndpoint :one
+SELECT * FROM webhook_endpoints
+WHERE id = $1 AND merchant_id = $2;
+
 -- name: CreateWebhookDelivery :one
 INSERT INTO webhook_deliveries (merchant_id, mode, endpoint_id, event_type, payload, status, attempts)
 VALUES ($1, $2, $3, $4, $5, $6, $7)

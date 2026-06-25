@@ -137,6 +137,8 @@ export interface Subscription {
   quantity: number;
   current_period_end: string | null;
   next_billing_at: string | null;
+  cancel_reason?: string;
+  cancelled_at?: string | null;
   created_at: string;
 }
 
@@ -201,6 +203,7 @@ export interface WebhookDelivery {
   event_type: string;
   status: string; // pending|delivered|failed
   attempts: number;
+  payload?: unknown; // the event envelope { id, type, mode, created_at, data }
   created_at: string;
 }
 

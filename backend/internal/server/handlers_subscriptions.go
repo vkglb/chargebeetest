@@ -4,11 +4,21 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/chargeebee/platform/internal/billing"
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 )
+
+// Recognised cancellation reasons; anything else is normalised to "other".
+var cancelReasons = map[string]bool{
+	"customer_request": true,
+	"payment_failure":  true,
+	"expired":          true,
+	"fraudulent":       true,
+	"other":            true,
+}
 
 type createSubscriptionRequest struct {
 	CustomerID      string `json:"customer_id"`
@@ -93,6 +103,39 @@ func (s *Server) handleCreateSubscription(w http.ResponseWriter, r *http.Request
 		"subscription_id": sub.ID, "customer_id": sub.CustomerID, "price_id": sub.PriceID, "status": sub.Status,
 	})
 	writeJSON(w, http.StatusCreated, sub)
+}
+
+type cancelSubscriptionRequest struct {
+	Reason string `json:"reason"` // customer_request | payment_failure | expired | fraudulent | other
+}
+
+// handleCancelSubscription cancels a subscription with a reason and stops its
+// future billing.
+func (s *Server) handleCancelSubscription(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	var req cancelSubscriptionRequest
+	_ = decodeJSON(r, &req)
+	if !cancelReasons[req.Reason] {
+		req.Reason = "other"
+	}
+	mid := merchantID(r)
+	sub, err := s.q.CancelSubscription(r.Context(), sqlc.CancelSubscriptionParams{
+		ID:           id,
+		MerchantID:   mid,
+		CancelReason: req.Reason,
+	})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "subscription not found")
+		return
+	}
+	s.emitter.Emit(mid, mode(r), "subscription.cancelled", map[string]any{
+		"subscription_id": sub.ID, "customer_id": sub.CustomerID, "reason": req.Reason,
+	})
+	writeJSON(w, http.StatusOK, sub)
 }
 
 func (s *Server) handleListSubscriptions(w http.ResponseWriter, r *http.Request) {

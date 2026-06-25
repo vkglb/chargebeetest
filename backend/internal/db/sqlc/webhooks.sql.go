@@ -103,6 +103,59 @@ func (q *Queries) DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEn
 	return err
 }
 
+const getWebhookDelivery = `-- name: GetWebhookDelivery :one
+SELECT id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode FROM webhook_deliveries
+WHERE id = $1 AND merchant_id = $2
+`
+
+type GetWebhookDeliveryParams struct {
+	ID         uuid.UUID `json:"id"`
+	MerchantID uuid.UUID `json:"merchant_id"`
+}
+
+func (q *Queries) GetWebhookDelivery(ctx context.Context, arg GetWebhookDeliveryParams) (WebhookDelivery, error) {
+	row := q.db.QueryRow(ctx, getWebhookDelivery, arg.ID, arg.MerchantID)
+	var i WebhookDelivery
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.EndpointID,
+		&i.EventType,
+		&i.Payload,
+		&i.Status,
+		&i.Attempts,
+		&i.CreatedAt,
+		&i.Mode,
+	)
+	return i, err
+}
+
+const getWebhookEndpoint = `-- name: GetWebhookEndpoint :one
+SELECT id, merchant_id, url, signing_secret, events, enabled, created_at, mode FROM webhook_endpoints
+WHERE id = $1 AND merchant_id = $2
+`
+
+type GetWebhookEndpointParams struct {
+	ID         uuid.UUID `json:"id"`
+	MerchantID uuid.UUID `json:"merchant_id"`
+}
+
+func (q *Queries) GetWebhookEndpoint(ctx context.Context, arg GetWebhookEndpointParams) (WebhookEndpoint, error) {
+	row := q.db.QueryRow(ctx, getWebhookEndpoint, arg.ID, arg.MerchantID)
+	var i WebhookEndpoint
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.Url,
+		&i.SigningSecret,
+		&i.Events,
+		&i.Enabled,
+		&i.CreatedAt,
+		&i.Mode,
+	)
+	return i, err
+}
+
 const listEnabledWebhookEndpoints = `-- name: ListEnabledWebhookEndpoints :many
 SELECT id, merchant_id, url, signing_secret, events, enabled, created_at, mode FROM webhook_endpoints
 WHERE merchant_id = $1 AND mode = $2 AND enabled = true

@@ -31,6 +31,11 @@ type BillingRunner interface {
 	RunForMerchant(ctx context.Context, merchantID uuid.UUID, mode string) (billing.RunSummary, error)
 }
 
+// WebhookResender re-delivers a past webhook delivery.
+type WebhookResender interface {
+	Resend(ctx context.Context, merchantID uuid.UUID, deliveryID uuid.UUID) error
+}
+
 // Server holds shared dependencies for HTTP handlers.
 type Server struct {
 	pool            *pgxpool.Pool
@@ -42,11 +47,12 @@ type Server struct {
 	emitter         Emitter
 	hub             *realtime.Hub
 	billing         BillingRunner
+	resender        WebhookResender
 	router          chi.Router
 }
 
 // New constructs a Server and registers all routes.
-func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, emitter Emitter, hub *realtime.Hub, billing BillingRunner, logger *slog.Logger) *Server {
+func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, emitter Emitter, hub *realtime.Hub, billing BillingRunner, resender WebhookResender, logger *slog.Logger) *Server {
 	s := &Server{
 		pool:            pool,
 		q:               sqlc.New(pool),
@@ -57,6 +63,7 @@ func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOri
 		emitter:         emitter,
 		hub:             hub,
 		billing:         billing,
+		resender:        resender,
 		router:          chi.NewRouter(),
 	}
 	s.routes()
@@ -123,6 +130,7 @@ func (s *Server) routes() {
 
 			r.Post("/subscriptions", s.handleCreateSubscription)
 			r.Get("/subscriptions", s.handleListSubscriptions)
+			r.Post("/subscriptions/{id}/cancel", s.handleCancelSubscription)
 
 			r.Get("/gateways", s.handleListGateways)
 			r.Post("/gateways", s.handleConnectGateway)
@@ -140,6 +148,7 @@ func (s *Server) routes() {
 			r.Get("/webhooks", s.handleListWebhooks)
 			r.Delete("/webhooks/{id}", s.handleDeleteWebhook)
 			r.Get("/webhook-deliveries", s.handleListWebhookDeliveries)
+			r.Post("/webhook-deliveries/{id}/resend", s.handleResendWebhook)
 
 			r.Post("/api-keys", s.handleCreateAPIKey)
 			r.Get("/api-keys", s.handleListAPIKeys)

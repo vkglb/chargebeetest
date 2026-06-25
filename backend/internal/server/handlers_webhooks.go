@@ -3,8 +3,10 @@ package server
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -87,6 +89,18 @@ func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// deliveryResponse exposes the stored payload as raw JSON (the sqlc []byte would
+// otherwise marshal to base64).
+type deliveryResponse struct {
+	ID         uuid.UUID       `json:"id"`
+	EndpointID uuid.UUID       `json:"endpoint_id"`
+	EventType  string          `json:"event_type"`
+	Status     string          `json:"status"`
+	Attempts   int32           `json:"attempts"`
+	Payload    json.RawMessage `json:"payload"`
+	CreatedAt  time.Time       `json:"created_at"`
+}
+
 func (s *Server) handleListWebhookDeliveries(w http.ResponseWriter, r *http.Request) {
 	deliveries, err := s.q.ListWebhookDeliveries(r.Context(), sqlc.ListWebhookDeliveriesParams{
 		MerchantID: merchantID(r),
@@ -97,7 +111,28 @@ func (s *Server) handleListWebhookDeliveries(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusInternalServerError, "could not list deliveries")
 		return
 	}
-	writeJSON(w, http.StatusOK, deliveries)
+	out := make([]deliveryResponse, 0, len(deliveries))
+	for _, d := range deliveries {
+		out = append(out, deliveryResponse{
+			ID: d.ID, EndpointID: d.EndpointID, EventType: d.EventType,
+			Status: d.Status, Attempts: d.Attempts, Payload: json.RawMessage(d.Payload), CreatedAt: d.CreatedAt.Time,
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// handleResendWebhook re-delivers a past webhook delivery to its endpoint.
+func (s *Server) handleResendWebhook(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	if err := s.resender.Resend(r.Context(), merchantID(r), id); err != nil {
+		writeError(w, http.StatusNotFound, "delivery not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "resent", "id": id})
 }
 
 func randomHex(n int) string {

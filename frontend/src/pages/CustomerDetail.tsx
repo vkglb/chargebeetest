@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ResponsiveContainer,
@@ -17,9 +17,11 @@ import {
   type Product,
   type Invoice,
   type Transaction,
+  type WebhookDelivery,
 } from "../api/client";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
 import { countryName } from "../lib/countries";
+import { cancelReasonLabel } from "../lib/subscriptions";
 
 // Human-readable status + reason for a subscription, derived from its state.
 const STATUS_LABEL: Record<string, { label: string; reason: string; cls: string }> = {
@@ -40,7 +42,14 @@ export default function CustomerDetail() {
   const [products, setProducts] = useState<Product[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [txns, setTxns] = useState<Transaction[]>([]);
+  const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [error, setError] = useState("");
+  const [openPayload, setOpenPayload] = useState<string | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
+
+  async function loadDeliveries() {
+    setDeliveries((await api.get<WebhookDelivery[]>("/v1/webhook-deliveries")) ?? []);
+  }
 
   useEffect(() => {
     Promise.all([
@@ -50,17 +59,31 @@ export default function CustomerDetail() {
       api.get<Product[]>("/v1/products"),
       api.get<Invoice[]>("/v1/invoices"),
       api.get<Transaction[]>("/v1/transactions"),
+      api.get<WebhookDelivery[]>("/v1/webhook-deliveries"),
     ])
-      .then(([c, s, pr, p, inv, t]) => {
+      .then(([c, s, pr, p, inv, t, d]) => {
         setCustomer((c ?? []).find((x) => x.id === id) ?? null);
         setSubs((s ?? []).filter((x) => x.customer_id === id));
         setPrices(pr ?? []);
         setProducts(p ?? []);
         setInvoices((inv ?? []).filter((x) => x.customer_id === id));
         setTxns(t ?? []);
+        setDeliveries(d ?? []);
       })
       .catch((e) => setError((e as Error).message));
   }, [id]);
+
+  async function resend(deliveryId: string) {
+    setResending(deliveryId);
+    try {
+      await api.post(`/v1/webhook-deliveries/${deliveryId}/resend`);
+      await loadDeliveries();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setResending(null);
+    }
+  }
 
   const priceLabel = (priceId: string) => {
     const p = prices.find((x) => x.id === priceId);
@@ -75,6 +98,15 @@ export default function CustomerDetail() {
     () => txns.filter((t) => t.invoice_id && invoiceIds.has(t.invoice_id)),
     [txns, invoiceIds],
   );
+
+  // Webhook events that reference one of this customer's subscriptions.
+  const subIds = useMemo(() => new Set(subs.map((s) => s.id)), [subs]);
+  const custDeliveries = useMemo(() => {
+    return deliveries.filter((d) => {
+      const data = (d.payload as { data?: { subscription_id?: string } } | undefined)?.data;
+      return data?.subscription_id ? subIds.has(data.subscription_id) : false;
+    });
+  }, [deliveries, subIds]);
 
   const totalSpend = useMemo(
     () => custTxns.filter((t) => t.status === "succeeded").reduce((a, b) => a + b.amount_minor, 0),
@@ -159,7 +191,11 @@ export default function CustomerDetail() {
                     <div key={s.id} className="sub-row">
                       <div>
                         <div className="sub-plan">{priceLabel(s.price_id)}</div>
-                        <div className="sub-reason">{meta.reason}</div>
+                        <div className="sub-reason">
+                          {s.status === "cancelled" && s.cancel_reason
+                            ? `Cancelled — ${cancelReasonLabel(s.cancel_reason)}`
+                            : meta.reason}
+                        </div>
                       </div>
                       <div className="sub-meta">
                         <span className={`badge ${meta.cls}`}>{meta.label}</span>
@@ -236,6 +272,68 @@ export default function CustomerDetail() {
                       <td className="mono">{t.gateway_txn_ref || "—"}</td>
                       <td className="mono">{formatDateTimeShort(t.created_at)}</td>
                     </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Webhook events */}
+          <div className="panel">
+            <h3>Webhook events ({custDeliveries.length})</h3>
+            {custDeliveries.length === 0 ? (
+              <div className="empty">No webhook events for this customer’s subscriptions.</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Status</th>
+                    <th>Attempts</th>
+                    <th>Sent</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {custDeliveries.map((d) => (
+                    <Fragment key={d.id}>
+                      <tr>
+                        <td className="mono">{d.event_type}</td>
+                        <td>
+                          <span
+                            className={`badge ${d.status === "delivered" ? "paid" : d.status === "failed" ? "cancelled" : "open"}`}
+                          >
+                            {d.status}
+                          </span>
+                        </td>
+                        <td>{d.attempts}</td>
+                        <td className="mono">{formatDateTimeShort(d.created_at)}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <span className="row-actions">
+                            <button
+                              className="link-btn"
+                              onClick={() => setOpenPayload(openPayload === d.id ? null : d.id)}
+                            >
+                              {openPayload === d.id ? "Hide" : "View"}
+                            </button>
+                            <button
+                              className="link-btn"
+                              disabled={resending === d.id}
+                              onClick={() => resend(d.id)}
+                            >
+                              {resending === d.id ? "Resending…" : "Resend"}
+                            </button>
+                          </span>
+                        </td>
+                      </tr>
+                      {openPayload === d.id && (
+                        <tr>
+                          <td colSpan={5}>
+                            <pre className="payload-view">{JSON.stringify(d.payload, null, 2)}</pre>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

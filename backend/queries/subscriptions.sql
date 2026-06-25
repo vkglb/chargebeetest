@@ -64,6 +64,17 @@ SET current_period_start = $2,
 WHERE id = $1
 RETURNING *;
 
+-- name: CancelSubscription :one
+-- Cancel a subscription with a reason and stop future billing.
+UPDATE subscriptions
+SET status = 'cancelled',
+    cancel_reason = $3,
+    cancelled_at = now(),
+    next_billing_at = NULL,
+    updated_at = now()
+WHERE id = $1 AND merchant_id = $2
+RETURNING *;
+
 -- name: SetSubscriptionStatus :one
 UPDATE subscriptions
 SET status = $2, updated_at = now()

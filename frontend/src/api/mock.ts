@@ -216,6 +216,7 @@ function seed(): DB {
         event_type: "payment.succeeded",
         status: "delivered",
         attempts: 1,
+        payload: { type: "payment.succeeded", data: { subscription_id: janeSub.id, amount_minor: 2900 } },
         created_at: daysFromNow(-1),
       },
       {
@@ -224,6 +225,7 @@ function seed(): DB {
         event_type: "subscription.created",
         status: "delivered",
         attempts: 1,
+        payload: { type: "subscription.created", data: { subscription_id: janeSub.id } },
         created_at: daysFromNow(-2),
       },
       {
@@ -232,6 +234,7 @@ function seed(): DB {
         event_type: "payment.failed",
         status: "failed",
         attempts: 3,
+        payload: { type: "payment.failed", data: { subscription_id: janeSub.id, reason: "card_declined" } },
         created_at: daysFromNow(-3),
       },
     ],
@@ -607,6 +610,7 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
           event_type: evt,
           status: i === 1 ? "failed" : "delivered",
           attempts: i === 1 ? 3 : 1,
+          payload: { type: evt, data: { subscription_id: db.subscriptions[0]?.id } },
           created_at: new Date(Date.now() - i * 3600000).toISOString(),
         });
       });
@@ -749,6 +753,31 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         db.coupons = db.coupons.filter((x) => x.id !== id);
         save(db);
         return { status: "deleted", id } as T;
+      }
+      if (method === "POST" && /^\/v1\/subscriptions\/[^/]+\/cancel$/.test(path)) {
+        const id = path.split("/")[3];
+        const sub = db.subscriptions.find((x) => x.id === id);
+        if (!sub) throw new Error("subscription not found");
+        sub.status = "cancelled";
+        sub.cancel_reason = body?.reason || "other";
+        sub.cancelled_at = nowISO();
+        sub.next_billing_at = null;
+        save(db);
+        return sub as T;
+      }
+      if (method === "POST" && /^\/v1\/webhook-deliveries\/[^/]+\/resend$/.test(path)) {
+        const id = path.split("/")[3];
+        const prev = db.webhookDeliveries.find((x) => x.id === id);
+        if (!prev) throw new Error("delivery not found");
+        db.webhookDeliveries.unshift({
+          ...prev,
+          id: uuid(),
+          status: "delivered",
+          attempts: 1,
+          created_at: nowISO(),
+        });
+        save(db);
+        return { status: "resent", id } as T;
       }
       throw new Error(`mock: unhandled ${key}`);
   }

@@ -13,6 +13,8 @@ import (
 type Querier interface {
 	AdvanceSubscriptionPeriod(ctx context.Context, arg AdvanceSubscriptionPeriodParams) (Subscription, error)
 	AnalyticsMRR(ctx context.Context, arg AnalyticsMRRParams) (int64, error)
+	// Cancel a subscription with a reason and stop future billing.
+	CancelSubscription(ctx context.Context, arg CancelSubscriptionParams) (Subscription, error)
 	CompleteCheckoutSession(ctx context.Context, arg CompleteCheckoutSessionParams) (CheckoutSession, error)
 	// Active/trialing subscriptions that existed at a point in time.
 	CountActiveSubscriptionsAsOf(ctx context.Context, arg CountActiveSubscriptionsAsOfParams) (int64, error)
@@ -57,6 +59,8 @@ type Querier interface {
 	// The merchant's active gateway used for charging, for a given mode.
 	GetPrimaryGatewayAccount(ctx context.Context, arg GetPrimaryGatewayAccountParams) (GatewayAccount, error)
 	GetSubscription(ctx context.Context, arg GetSubscriptionParams) (Subscription, error)
+	GetWebhookDelivery(ctx context.Context, arg GetWebhookDeliveryParams) (WebhookDelivery, error)
+	GetWebhookEndpoint(ctx context.Context, arg GetWebhookEndpointParams) (WebhookEndpoint, error)
 	// Record the outcome of a billing pass for the run-history chart.
 	InsertBillingRun(ctx context.Context, arg InsertBillingRunParams) (BillingRun, error)
 	ListAPIKeysByMerchant(ctx context.Context, merchantID uuid.UUID) ([]ListAPIKeysByMerchantRow, error)
