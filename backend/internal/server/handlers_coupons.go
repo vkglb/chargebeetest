@@ -3,6 +3,9 @@ package server
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 )
 
@@ -49,4 +52,52 @@ func (s *Server) handleListCoupons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, coupons)
+}
+
+type updateCouponRequest struct {
+	Status string `json:"status"` // active | archived
+}
+
+// handleUpdateCoupon changes a coupon's status (active ⇄ archived). Archived
+// coupons are disabled but kept on record with their redemption history.
+func (s *Server) handleUpdateCoupon(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	var req updateCouponRequest
+	if err := decodeJSON(r, &req); err != nil || (req.Status != "active" && req.Status != "archived") {
+		writeError(w, http.StatusBadRequest, "status must be 'active' or 'archived'")
+		return
+	}
+	coupon, err := s.q.SetCouponStatus(r.Context(), sqlc.SetCouponStatusParams{
+		ID:         id,
+		MerchantID: merchantID(r),
+		Status:     req.Status,
+	})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "coupon not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, coupon)
+}
+
+// handleDeleteCoupon permanently removes a coupon.
+func (s *Server) handleDeleteCoupon(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	n, err := s.q.DeleteCoupon(r.Context(), sqlc.DeleteCouponParams{ID: id, MerchantID: merchantID(r)})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not delete coupon")
+		return
+	}
+	if n == 0 {
+		writeError(w, http.StatusNotFound, "coupon not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "deleted", "id": id})
 }

@@ -25,6 +25,20 @@ export function formatDate(iso: string | null): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+// Date + time without seconds, e.g. "Jun 25, 2026, 1:10 PM".
+export function formatDateTimeShort(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 // Full timestamp incl. seconds, e.g. "Jun 23, 2026, 02:30:45 PM".
 export function formatDateTime(iso: string | null): string {
   if (!iso) return "—";

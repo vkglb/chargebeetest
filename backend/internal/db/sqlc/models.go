@@ -50,6 +50,7 @@ type Coupon struct {
 	ExpiresAt      *time.Time         `json:"expires_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	Mode           string             `json:"mode"`
+	Status         string             `json:"status"`
 }
 
 type Customer struct {

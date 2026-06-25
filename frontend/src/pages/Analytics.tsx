@@ -5,6 +5,8 @@ import {
   Area,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   PieChart,
   Pie,
   Cell,
@@ -77,14 +79,35 @@ export default function Analytics() {
   const fmtDay = (d: string) => d.slice(5); // MM-DD
   const currency = "USD";
 
-  // "Today" is the last point of each daily series; "yesterday" the one before.
-  const revSeries = data?.revenue_by_day ?? [];
-  const subSeriesData = data?.subscriptions_by_day ?? [];
-  const last = <T,>(a: T[], n: number) => a[a.length - n];
-  const revToday = last(revSeries, 1)?.value ?? 0;
-  const revYesterday = last(revSeries, 2)?.value ?? 0;
-  const subsToday = last(subSeriesData, 1)?.value ?? 0;
-  const subsYesterday = last(subSeriesData, 2)?.value ?? 0;
+  // Intraday gross-volume: cumulative revenue through the day, today (solid, up
+  // to the current hour) vs yesterday (dashed, full day).
+  const hourLabel = (h: number) => {
+    const hh = h % 24;
+    const ap = hh < 12 ? "AM" : "PM";
+    const disp = hh % 12 === 0 ? 12 : hh % 12;
+    return `${disp} ${ap}`;
+  };
+  const intraday = (() => {
+    const t = new Array(24).fill(0);
+    const y = new Array(24).fill(0);
+    (data?.today_hourly ?? []).forEach((p) => (t[p.hour] = p.value));
+    (data?.yesterday_hourly ?? []).forEach((p) => (y[p.hour] = p.value));
+    const nowHour = new Date().getUTCHours();
+    let accT = 0;
+    let accY = 0;
+    const rows: { hour: number; today: number | null; yesterday: number }[] = [];
+    for (let h = 0; h <= 24; h++) {
+      if (h > 0) {
+        accT += t[h - 1] ?? 0;
+        accY += y[h - 1] ?? 0;
+      }
+      rows.push({ hour: h, today: h <= nowHour + 1 ? accT : null, yesterday: accY });
+    }
+    return rows;
+  })();
+  const todayTotal = (data?.today_hourly ?? []).reduce((a, b) => a + b.value, 0);
+  const yesterdayTotal = (data?.yesterday_hourly ?? []).reduce((a, b) => a + b.value, 0);
+  const nowLabel = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
   return (
     <div>
@@ -126,18 +149,58 @@ export default function Analytics() {
       </div>
 
       {data && (
-        <div className="today-strip">
-          <span className="today-title">Today</span>
-          <div className="today-chip">
-            <span className="today-label">Revenue</span>
-            <span className="today-val">{formatMoney(revToday, currency)}</span>
-            <DeltaBadge d={{ current: revToday, previous: revYesterday }} caption="vs yesterday" />
+        <div className="panel today-panel">
+          <h3 style={{ marginBottom: 16 }}>Today</h3>
+          <div className="today-legend">
+            <div className="today-metric">
+              <span className="today-label">Gross volume</span>
+              <span className="today-amount">{formatMoney(todayTotal, currency)}</span>
+              <span className="today-time">{nowLabel}</span>
+            </div>
+            <div className="today-metric muted">
+              <span className="today-label">Yesterday</span>
+              <span className="today-amount">{formatMoney(yesterdayTotal, currency)}</span>
+            </div>
           </div>
-          <div className="today-chip">
-            <span className="today-label">New subscriptions</span>
-            <span className="today-val">{subsToday}</span>
-            <DeltaBadge d={{ current: subsToday, previous: subsYesterday }} caption="vs yesterday" />
-          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={intraday} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#2a2f3a" vertical={false} />
+              <XAxis
+                dataKey="hour"
+                type="number"
+                domain={[0, 24]}
+                ticks={[0, 6, 12, 18, 24]}
+                tickFormatter={hourLabel}
+                stroke="#9aa3b2"
+                fontSize={11}
+              />
+              <YAxis stroke="#9aa3b2" fontSize={11} tickFormatter={(v) => `$${Math.round(v / 100)}`} />
+              <Tooltip
+                contentStyle={{ background: "#171a21", border: "1px solid #2a2f3a", borderRadius: 8 }}
+                labelFormatter={(h) => hourLabel(Number(h))}
+                formatter={(v, name) => [
+                  v == null ? "—" : formatMoney(Number(v), currency),
+                  name === "today" ? "Today" : "Yesterday",
+                ]}
+              />
+              <Line
+                type="monotone"
+                dataKey="yesterday"
+                stroke="#9aa3b2"
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+                dot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="today"
+                stroke="#6c5ce7"
+                strokeWidth={2.5}
+                dot={false}
+                connectNulls={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       )}
 

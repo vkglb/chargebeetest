@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type Customer } from "../api/client";
-import { formatDate } from "../lib/format";
+import { formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
 
@@ -118,7 +118,7 @@ export default function Customers() {
                   <td>{c.email}</td>
                   <td>{c.name || "—"}</td>
                   <td className="mono">{c.gateway_customer_ref || "—"}</td>
-                  <td>{formatDate(c.created_at)}</td>
+                  <td>{formatDateTimeShort(c.created_at)}</td>
                 </tr>
               ))}
             </tbody>

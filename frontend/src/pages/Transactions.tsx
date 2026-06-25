@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type Transaction } from "../api/client";
-import { formatMoney, formatDate } from "../lib/format";
+import { formatMoney, formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
 
@@ -71,7 +71,7 @@ export default function Transactions() {
                     </span>
                   </td>
                   <td>{t.failure_reason || "—"}</td>
-                  <td>{formatDate(t.created_at)}</td>
+                  <td>{formatDateTimeShort(t.created_at)}</td>
                 </tr>
               ))}
             </tbody>

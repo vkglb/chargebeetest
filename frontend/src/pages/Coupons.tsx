@@ -48,6 +48,30 @@ export default function Coupons() {
     }
   }
 
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  async function toggleStatus(c: Coupon) {
+    setError("");
+    const next = c.status === "archived" ? "active" : "archived";
+    try {
+      await api.patch(`/v1/coupons/${c.id}`, { status: next });
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function remove(id: string) {
+    setError("");
+    try {
+      await api.del(`/v1/coupons/${id}`);
+      setConfirmDelete(null);
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   const displayValue = (c: Coupon) =>
     c.discount_type === "percentage" ? `${c.value}%` : formatMoney(c.value, "USD");
   const maxRed = (c: Coupon) => {
@@ -130,17 +154,49 @@ export default function Coupons() {
                 <th>Discount</th>
                 <th>Redeemed</th>
                 <th>Max</th>
+                <th>Status</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
-                <tr key={c.id}>
-                  <td className="mono" style={{ color: "var(--text)" }}>{c.code}</td>
-                  <td>{displayValue(c)}</td>
-                  <td>{c.redemptions}</td>
-                  <td>{maxRed(c)}</td>
-                </tr>
-              ))}
+              {filtered.map((c) => {
+                const archived = c.status === "archived";
+                return (
+                  <tr key={c.id} style={archived ? { opacity: 0.55 } : undefined}>
+                    <td className="mono" style={{ color: "var(--text)" }}>{c.code}</td>
+                    <td>{displayValue(c)}</td>
+                    <td>{c.redemptions}</td>
+                    <td>{maxRed(c)}</td>
+                    <td>
+                      <span className={`badge ${archived ? "cancelled" : "active"}`}>
+                        {archived ? "archived" : "active"}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {confirmDelete === c.id ? (
+                        <span className="row-actions">
+                          <span style={{ color: "var(--muted)", fontSize: 12 }}>Remove?</span>
+                          <button className="link-btn danger" onClick={() => remove(c.id)}>
+                            Yes
+                          </button>
+                          <button className="link-btn" onClick={() => setConfirmDelete(null)}>
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <span className="row-actions">
+                          <button className="link-btn" onClick={() => toggleStatus(c)}>
+                            {archived ? "Activate" : "Disable"}
+                          </button>
+                          <button className="link-btn danger" onClick={() => setConfirmDelete(c.id)}>
+                            Remove
+                          </button>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

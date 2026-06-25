@@ -60,6 +60,21 @@ func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	curStart := now.AddDate(0, 0, -30)
 	prevStart := now.AddDate(0, 0, -60)
 
+	// Intraday gross volume: today (up to now) and yesterday (full day), per hour.
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	yesterdayStart := todayStart.AddDate(0, 0, -1)
+	todayHourRows, _ := s.q.RevenueByHourBetween(ctx, sqlc.RevenueByHourBetweenParams{
+		MerchantID: mid, Mode: md, CreatedAt: pgTimestamptz(todayStart), CreatedAt_2: pgTimestamptz(now)})
+	yestHourRows, _ := s.q.RevenueByHourBetween(ctx, sqlc.RevenueByHourBetweenParams{
+		MerchantID: mid, Mode: md, CreatedAt: pgTimestamptz(yesterdayStart), CreatedAt_2: pgTimestamptz(todayStart)})
+	hourSeries := func(rows []sqlc.RevenueByHourBetweenRow) []map[string]any {
+		out := make([]map[string]any, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, map[string]any{"hour": r.Hour, "value": r.AmountMinor})
+		}
+		return out
+	}
+
 	revCur, _ := s.q.RevenueBetween(ctx, sqlc.RevenueBetweenParams{
 		MerchantID: mid, Mode: md, CreatedAt: pgTimestamptz(curStart), CreatedAt_2: pgTimestamptz(now)})
 	revPrev, _ := s.q.RevenueBetween(ctx, sqlc.RevenueBetweenParams{
@@ -101,5 +116,7 @@ func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		"subscriptions_by_day": subSeries,
 		"status_breakdown":     statusBreakdown,
 		"products":             products,
+		"today_hourly":         hourSeries(todayHourRows),
+		"yesterday_hourly":     hourSeries(yestHourRows),
 	})
 }

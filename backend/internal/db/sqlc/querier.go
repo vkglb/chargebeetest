@@ -36,6 +36,8 @@ type Querier interface {
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error)
 	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
+	// Permanently remove a coupon.
+	DeleteCoupon(ctx context.Context, arg DeleteCouponParams) (int64, error)
 	// Disconnect a gateway for a merchant + mode (removes the stored credentials).
 	DeleteGatewayAccount(ctx context.Context, arg DeleteGatewayAccountParams) (int64, error)
 	DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error
@@ -84,9 +86,14 @@ type Querier interface {
 	// Succeeded revenue inside a [start, end) window (a flow metric).
 	RevenueBetween(ctx context.Context, arg RevenueBetweenParams) (int64, error)
 	RevenueByDay(ctx context.Context, arg RevenueByDayParams) ([]RevenueByDayRow, error)
+	// Succeeded revenue per hour-of-day inside a [start, end) window — for the
+	// intraday "today vs yesterday" gross-volume chart.
+	RevenueByHourBetween(ctx context.Context, arg RevenueByHourBetweenParams) ([]RevenueByHourBetweenRow, error)
 	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error
 	// Insert a backdated transaction (used by the dev seeder to populate charts).
 	SeedTransaction(ctx context.Context, arg SeedTransactionParams) error
+	// Archive (disable) or re-activate a coupon.
+	SetCouponStatus(ctx context.Context, arg SetCouponStatusParams) (Coupon, error)
 	SetCustomerGatewayRef(ctx context.Context, arg SetCustomerGatewayRefParams) (Customer, error)
 	SetSubscriptionStatus(ctx context.Context, arg SetSubscriptionStatusParams) (Subscription, error)
 	SubscriptionStatusBreakdown(ctx context.Context, arg SubscriptionStatusBreakdownParams) ([]SubscriptionStatusBreakdownRow, error)

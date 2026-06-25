@@ -8,7 +8,7 @@ import {
   type Product,
   type BillRunResult,
 } from "../api/client";
-import { formatDate, formatMoney } from "../lib/format";
+import { formatDateTimeShort, formatMoney } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
 
@@ -208,7 +208,7 @@ export default function Subscriptions() {
                     <span className={`badge ${s.status}`}>{s.status}</span>
                   </td>
                   <td>{s.quantity}</td>
-                  <td>{formatDate(s.next_billing_at)}</td>
+                  <td>{formatDateTimeShort(s.next_billing_at)}</td>
                 </tr>
               ))}
             </tbody>

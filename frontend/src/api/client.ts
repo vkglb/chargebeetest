@@ -90,6 +90,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
+  patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   del: <T>(path: string) => request<T>("DELETE", path),
 };
 
@@ -153,6 +154,7 @@ export interface Coupon {
   value: number;
   max_redemptions: { Int32: number; Valid: boolean } | number | null;
   redemptions: number;
+  status?: string; // active | archived
   created_at: string;
 }
 
@@ -247,6 +249,8 @@ export interface Analytics {
   revenue_by_day: SeriesPoint[];
   subscriptions_by_day: SeriesPoint[];
   status_breakdown: { status: string; count: number }[];
+  today_hourly?: { hour: number; value: number }[];
+  yesterday_hourly?: { hour: number; value: number }[];
 }
 
 // WebSocket URL for the live event stream, or null in guest/unauthenticated mode.

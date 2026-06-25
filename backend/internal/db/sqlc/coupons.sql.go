@@ -16,7 +16,7 @@ import (
 const createCoupon = `-- name: CreateCoupon :one
 INSERT INTO coupons (merchant_id, mode, code, discount_type, value, max_redemptions, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode
+RETURNING id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode, status
 `
 
 type CreateCouponParams struct {
@@ -51,12 +51,32 @@ func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (Cou
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.Status,
 	)
 	return i, err
 }
 
+const deleteCoupon = `-- name: DeleteCoupon :execrows
+DELETE FROM coupons
+WHERE id = $1 AND merchant_id = $2
+`
+
+type DeleteCouponParams struct {
+	ID         uuid.UUID `json:"id"`
+	MerchantID uuid.UUID `json:"merchant_id"`
+}
+
+// Permanently remove a coupon.
+func (q *Queries) DeleteCoupon(ctx context.Context, arg DeleteCouponParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteCoupon, arg.ID, arg.MerchantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getCouponByCode = `-- name: GetCouponByCode :one
-SELECT id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode FROM coupons
+SELECT id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode, status FROM coupons
 WHERE merchant_id = $1 AND mode = $2 AND code = $3
 `
 
@@ -80,12 +100,13 @@ func (q *Queries) GetCouponByCode(ctx context.Context, arg GetCouponByCodeParams
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.Status,
 	)
 	return i, err
 }
 
 const listCouponsByMerchant = `-- name: ListCouponsByMerchant :many
-SELECT id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode FROM coupons
+SELECT id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode, status FROM coupons
 WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
 `
@@ -115,6 +136,7 @@ func (q *Queries) ListCouponsByMerchant(ctx context.Context, arg ListCouponsByMe
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.Mode,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -124,4 +146,37 @@ func (q *Queries) ListCouponsByMerchant(ctx context.Context, arg ListCouponsByMe
 		return nil, err
 	}
 	return items, nil
+}
+
+const setCouponStatus = `-- name: SetCouponStatus :one
+UPDATE coupons
+SET status = $3
+WHERE id = $1 AND merchant_id = $2
+RETURNING id, merchant_id, code, discount_type, value, max_redemptions, redemptions, expires_at, created_at, mode, status
+`
+
+type SetCouponStatusParams struct {
+	ID         uuid.UUID `json:"id"`
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Status     string    `json:"status"`
+}
+
+// Archive (disable) or re-activate a coupon.
+func (q *Queries) SetCouponStatus(ctx context.Context, arg SetCouponStatusParams) (Coupon, error) {
+	row := q.db.QueryRow(ctx, setCouponStatus, arg.ID, arg.MerchantID, arg.Status)
+	var i Coupon
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.Code,
+		&i.DiscountType,
+		&i.Value,
+		&i.MaxRedemptions,
+		&i.Redemptions,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.Mode,
+		&i.Status,
+	)
+	return i, err
 }

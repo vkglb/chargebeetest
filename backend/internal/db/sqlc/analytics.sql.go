@@ -267,6 +267,55 @@ func (q *Queries) RevenueByDay(ctx context.Context, arg RevenueByDayParams) ([]R
 	return items, nil
 }
 
+const revenueByHourBetween = `-- name: RevenueByHourBetween :many
+SELECT date_part('hour', created_at)::int AS hour,
+       COALESCE(SUM(amount_minor), 0)::bigint AS amount_minor
+FROM transactions
+WHERE merchant_id = $1 AND mode = $2 AND status = 'succeeded'
+  AND created_at >= $3 AND created_at < $4
+GROUP BY 1
+ORDER BY 1
+`
+
+type RevenueByHourBetweenParams struct {
+	MerchantID  uuid.UUID          `json:"merchant_id"`
+	Mode        string             `json:"mode"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
+}
+
+type RevenueByHourBetweenRow struct {
+	Hour        int32 `json:"hour"`
+	AmountMinor int64 `json:"amount_minor"`
+}
+
+// Succeeded revenue per hour-of-day inside a [start, end) window — for the
+// intraday "today vs yesterday" gross-volume chart.
+func (q *Queries) RevenueByHourBetween(ctx context.Context, arg RevenueByHourBetweenParams) ([]RevenueByHourBetweenRow, error) {
+	rows, err := q.db.Query(ctx, revenueByHourBetween,
+		arg.MerchantID,
+		arg.Mode,
+		arg.CreatedAt,
+		arg.CreatedAt_2,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RevenueByHourBetweenRow{}
+	for rows.Next() {
+		var i RevenueByHourBetweenRow
+		if err := rows.Scan(&i.Hour, &i.AmountMinor); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const subscriptionStatusBreakdown = `-- name: SubscriptionStatusBreakdown :many
 SELECT status, COUNT(*)::bigint AS count
 FROM subscriptions

@@ -53,6 +53,17 @@ FROM transactions
 WHERE merchant_id = $1 AND mode = $2 AND status = 'succeeded'
   AND created_at >= $3 AND created_at < $4;
 
+-- name: RevenueByHourBetween :many
+-- Succeeded revenue per hour-of-day inside a [start, end) window — for the
+-- intraday "today vs yesterday" gross-volume chart.
+SELECT date_part('hour', created_at)::int AS hour,
+       COALESCE(SUM(amount_minor), 0)::bigint AS amount_minor
+FROM transactions
+WHERE merchant_id = $1 AND mode = $2 AND status = 'succeeded'
+  AND created_at >= $3 AND created_at < $4
+GROUP BY 1
+ORDER BY 1;
+
 -- name: CountCustomersAsOf :one
 -- Total customers that existed at a point in time (a stock metric).
 SELECT COUNT(*)::bigint AS count

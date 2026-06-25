@@ -45,10 +45,31 @@ const navGroups = [
   },
 ];
 
+const COLLAPSE_KEY = "chargeebee_nav_collapsed";
+
+function loadCollapsed(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
 export default function Layout() {
   const { logout, merchantId, isGuest } = useAuth();
   const navigate = useNavigate();
   const [showTour, setShowTour] = useState(!tourDone());
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
+
+  function toggleGroup(title: string) {
+    setCollapsed((prev) => {
+      const next = { ...prev, [title]: !prev[title] };
+      localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
 
   function handleLogout() {
     logout();
@@ -85,22 +106,41 @@ export default function Layout() {
           </button>
         </div>
         <nav>
-          {navGroups.map((group, gi) => (
-            <div key={gi} className="nav-group">
-              {group.title && <div className="nav-group-title">{group.title}</div>}
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={"end" in item ? item.end : false}
-                  data-tour={TOUR_IDS[item.label]}
-                  className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          ))}
+          {navGroups.map((group, gi) => {
+            const isCollapsed = !!group.title && collapsed[group.title];
+            return (
+              <div key={gi} className="nav-group">
+                {group.title && (
+                  <button
+                    className="nav-group-title"
+                    onClick={() => toggleGroup(group.title)}
+                    aria-expanded={!isCollapsed}
+                  >
+                    <span>{group.title}</span>
+                    <svg
+                      className={`nav-chevron ${isCollapsed ? "collapsed" : ""}`}
+                      viewBox="0 0 16 16"
+                      aria-hidden="true"
+                    >
+                      <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
+                {!isCollapsed &&
+                  group.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={"end" in item ? item.end : false}
+                      data-tour={TOUR_IDS[item.label]}
+                      className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+              </div>
+            );
+          })}
         </nav>
         <div className="sidebar-footer">
           <div className="merchant-id" title={merchantId ?? ""}>

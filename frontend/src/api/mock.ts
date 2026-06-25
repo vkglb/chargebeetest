@@ -358,6 +358,16 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
       const total = revenue_by_day.reduce((a, b) => a + b.value, 0);
       const activeSubs = statusMap["active"] || 0;
       const customers = db.customers.length;
+      // Intraday hourly gross volume (today up to the current hour, yesterday full day).
+      const nowHour = new Date().getUTCHours();
+      const today_hourly: { hour: number; value: number }[] = [];
+      for (let h = 0; h <= nowHour; h++) {
+        if (Math.random() < 0.5) today_hourly.push({ hour: h, value: Math.round(Math.random() * 1500 + 200) });
+      }
+      const yesterday_hourly: { hour: number; value: number }[] = [];
+      for (let h = 0; h < 24; h++) {
+        if (Math.random() < 0.45) yesterday_hourly.push({ hour: h, value: Math.round(Math.random() * 1500 + 200) });
+      }
       return {
         summary: {
           customers,
@@ -383,6 +393,8 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         revenue_by_day,
         subscriptions_by_day,
         status_breakdown: Object.entries(statusMap).map(([status, count]) => ({ status, count })),
+        today_hourly,
+        yesterday_hourly,
       } as T;
     }
 
@@ -703,6 +715,20 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         db.gateways = db.gateways.filter((g) => g.provider !== provider);
         save(db);
         return { status: "disconnected", provider } as T;
+      }
+      if (method === "PATCH" && path.startsWith("/v1/coupons/")) {
+        const id = path.split("/").pop();
+        const c = db.coupons.find((x) => x.id === id);
+        if (!c) throw new Error("coupon not found");
+        c.status = body?.status;
+        save(db);
+        return c as T;
+      }
+      if (method === "DELETE" && path.startsWith("/v1/coupons/")) {
+        const id = path.split("/").pop();
+        db.coupons = db.coupons.filter((x) => x.id !== id);
+        save(db);
+        return { status: "deleted", id } as T;
       }
       throw new Error(`mock: unhandled ${key}`);
   }

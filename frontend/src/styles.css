@@ -95,6 +95,17 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 }
 .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
 .btn-ghost-danger:hover { color: var(--red); border-color: var(--red); }
+.row-actions { display: inline-flex; gap: 14px; align-items: center; justify-content: flex-end; }
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+}
+.link-btn:hover { text-decoration: underline; }
+.link-btn.danger { color: var(--red); }
 .btn-danger { background: var(--red); border-color: var(--red); color: #fff; }
 .btn-danger:hover { background: #c0392b; }
 .disconnect-confirm { margin-top: 10px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
@@ -177,6 +188,13 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .sidebar nav { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; }
 .nav-group { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
 .nav-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
@@ -185,6 +203,13 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
   padding: 10px 12px 4px;
   opacity: 0.7;
 }
+.nav-group-title:hover { opacity: 1; color: var(--text); }
+.nav-chevron {
+  width: 13px;
+  height: 13px;
+  transition: transform 0.18s ease;
+}
+.nav-chevron.collapsed { transform: rotate(-90deg); }
 .nav-item {
   padding: 10px 12px;
   border-radius: 8px;
@@ -271,29 +296,14 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .delta .delta-cap { color: var(--muted); font-weight: 400; font-size: 11.5px; }
 td .delta { margin-top: 0; }
 
-/* "Today so far" strip */
-.today-strip {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  flex-wrap: wrap;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 18px;
-  margin-bottom: 24px;
-}
-.today-title {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--muted);
-}
-.today-chip { display: flex; align-items: baseline; gap: 10px; }
-.today-chip .today-label { color: var(--muted); font-size: 13px; }
-.today-chip .today-val { font-size: 18px; font-weight: 700; }
-.today-chip .delta { margin-top: 0; }
+/* Intraday "Today" gross-volume panel */
+.today-panel { margin-bottom: 24px; }
+.today-legend { display: flex; gap: 48px; margin-bottom: 12px; }
+.today-metric { display: flex; flex-direction: column; gap: 2px; }
+.today-metric .today-label { color: var(--muted); font-size: 13px; }
+.today-metric .today-amount { font-size: 22px; font-weight: 700; }
+.today-metric.muted .today-amount { color: var(--muted); font-weight: 600; }
+.today-metric .today-time { color: var(--muted); font-size: 12px; }
 
 /* Billing scheduler control */
 .scheduler-panel {

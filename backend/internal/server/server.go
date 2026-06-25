@@ -128,6 +128,8 @@ func (s *Server) routes() {
 
 			r.Post("/coupons", s.handleCreateCoupon)
 			r.Get("/coupons", s.handleListCoupons)
+			r.Patch("/coupons/{id}", s.handleUpdateCoupon)
+			r.Delete("/coupons/{id}", s.handleDeleteCoupon)
 
 			r.Get("/invoices", s.handleListInvoices)
 			r.Get("/transactions", s.handleListTransactions)
