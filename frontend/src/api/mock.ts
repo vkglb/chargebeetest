@@ -308,6 +308,9 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
   const key = `${method} ${path.split("?")[0]}`;
 
   switch (key) {
+    case "GET /v1/sites":
+      return [{ id: "demo-merchant-0000", name: "Demo Business", status: "active" }] as T;
+
     case "GET /v1/products":
       return db.products as T;
     case "POST /v1/products": {

@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Checkouts from "./pages/Checkouts";
 import Checkout from "./pages/Checkout";
 import Docs from "./pages/Docs";
+import Sites from "./pages/Sites";
 
 export default function App() {
   return (
@@ -26,6 +27,15 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       {/* Public hosted checkout page (no auth — the customer lands here) */}
       <Route path="/checkout/:id" element={<Checkout />} />
+      {/* Post-login site selector (auth, but standalone — no dashboard chrome) */}
+      <Route
+        path="/sites"
+        element={
+          <ProtectedRoute>
+            <Sites />
+          </ProtectedRoute>
+        }
+      />
       <Route
         element={
           <ProtectedRoute>

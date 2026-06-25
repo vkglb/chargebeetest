@@ -17,7 +17,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate("/");
+      navigate("/sites");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Login failed");
     } finally {
@@ -53,7 +53,7 @@ export default function Login() {
             className="btn-ghost"
             onClick={() => {
               loginAsGuest();
-              navigate("/");
+              navigate("/sites");
             }}
           >
             Explore as guest (demo, no backend)

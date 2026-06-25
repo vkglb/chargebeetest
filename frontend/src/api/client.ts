@@ -202,6 +202,12 @@ export interface ApiKeyCreated extends ApiKey {
   secret: string; // shown once
 }
 
+export interface Site {
+  id: string;
+  name: string;
+  status: string;
+}
+
 export interface CheckoutSessionCreated {
   id: string;
   url: string;

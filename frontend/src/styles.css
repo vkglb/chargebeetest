@@ -86,6 +86,26 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 }
 .error { color: var(--red); margin-top: 12px; font-size: 13px; }
 
+/* ── Site selector (post-login) ───────────────────────────── */
+.sites-wrap { max-width: 720px; margin: 0 auto; padding: 40px 24px; }
+.sites-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+.sites-title { font-size: 26px; margin: 0 0 20px; }
+.link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 14px; text-decoration: underline; }
+.sites-list { display: flex; flex-direction: column; gap: 12px; }
+.site-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+}
+.site-name { font-weight: 700; font-size: 16px; }
+.site-sub { margin-top: 4px; }
+.site-actions { display: flex; gap: 10px; }
+.site-btn { width: auto !important; padding: 9px 16px !important; }
+
 /* ── App shell ────────────────────────────────────────────── */
 .app-shell { display: flex; min-height: 100vh; }
 .sidebar {

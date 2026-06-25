@@ -80,6 +80,8 @@ func (s *Server) routes() {
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
 
+			r.Get("/sites", s.handleListSites)
+
 			r.Post("/products", s.handleCreateProduct)
 			r.Get("/products", s.handleListProducts)
 			r.Post("/prices", s.handleCreatePrice)

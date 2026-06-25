@@ -22,7 +22,7 @@ export default function Signup() {
     setLoading(true);
     try {
       await signup(merchantName, email, password);
-      navigate("/");
+      navigate("/sites");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Sign up failed");
     } finally {
@@ -62,7 +62,7 @@ export default function Signup() {
             className="btn-ghost"
             onClick={() => {
               loginAsGuest();
-              navigate("/");
+              navigate("/sites");
             }}
           >
             Explore as guest (demo, no backend)
