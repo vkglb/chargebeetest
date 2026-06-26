@@ -22,7 +22,51 @@ import {
   type Transaction,
 } from "../api/client";
 import { useRealtime, type LiveEvent } from "../lib/useRealtime";
-import { formatMoney, formatDateTime, formatDateTimeShort } from "../lib/format";
+import { formatMoney, formatDateTimeShort } from "../lib/format";
+
+// Turn a raw realtime event into a human-readable line for the live feed —
+// surfacing the billing action in progress (payment, dunning retry, next bill).
+function describeEvent(e: LiveEvent): { label: string; detail: string; cls: string } {
+  const d = e.data || {};
+  const money = (m: unknown, c: unknown) => formatMoney(Number(m) || 0, String(c || "USD"));
+  const when = (v: unknown) => (v ? formatDateTimeShort(String(v)) : "");
+  switch (e.type) {
+    case "subscription.created":
+      return { label: "New subscription", detail: "via checkout", cls: "trialing" };
+    case "invoice.created":
+      return { label: "Invoice created", detail: money(d.total_minor, d.currency), cls: "open" };
+    case "payment.succeeded":
+      return {
+        label: "Payment received",
+        detail: `${money(d.amount_minor, d.currency)} · next billing ${when(d.next_billing)}`,
+        cls: "paid",
+      };
+    case "payment.failed":
+      return {
+        label: "Payment failed",
+        detail: `${money(d.amount_minor, d.currency)}${d.reason ? ` · ${d.reason}` : ""}`,
+        cls: "cancelled",
+      };
+    case "subscription.dunning_scheduled":
+      return {
+        label: `Dunning retry #${Number(d.attempt) || 1}`,
+        detail: `scheduled for ${when(d.next_retry)}`,
+        cls: "past_due",
+      };
+    case "subscription.dunning_exhausted":
+      return {
+        label: "Dunning exhausted",
+        detail: `after ${Number(d.attempts) || 0} attempts · marked unpaid`,
+        cls: "unpaid",
+      };
+    case "subscription.unpaid":
+      return { label: "Marked unpaid", detail: String(d.reason || ""), cls: "unpaid" };
+    case "subscription.cancelled":
+      return { label: "Subscription cancelled", detail: d.reason ? String(d.reason) : "", cls: "cancelled" };
+    default:
+      return { label: e.type, detail: "", cls: "open" };
+  }
+}
 
 const STATUS_COLORS: Record<string, string> = {
   active: "#2ecc71",
@@ -324,14 +368,18 @@ export default function Analytics() {
           ) : (
             <table>
               <tbody>
-                {feed.map((e, i) => (
-                  <tr key={i}>
-                    <td className="mono" style={{ color: "var(--text)" }}>
-                      {e.type}
-                    </td>
-                    <td className="mono">{formatDateTime(e.created_at)}</td>
-                  </tr>
-                ))}
+                {feed.map((e, i) => {
+                  const m = describeEvent(e);
+                  return (
+                    <tr key={i}>
+                      <td>
+                        <span className={`badge ${m.cls}`}>{m.label}</span>
+                      </td>
+                      <td style={{ color: "var(--text)" }}>{m.detail}</td>
+                      <td className="mono">{formatDateTimeShort(e.created_at)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

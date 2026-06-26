@@ -206,12 +206,14 @@ func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription)
 
 	if res.Status == gateway.ChargeSucceeded {
 		e.emit.Emit(sub.MerchantID, sub.Mode, "payment.succeeded", map[string]any{
-			"subscription_id": sub.ID, "invoice_id": inv.ID, "amount_minor": amount, "currency": price.Currency,
+			"subscription_id": sub.ID, "invoice_id": inv.ID, "amount_minor": amount,
+			"currency": price.Currency, "next_billing": periodEnd,
 		})
 		return true, e.onChargeSucceeded(ctx, sub, inv.ID, periodStart, periodEnd)
 	}
 	e.emit.Emit(sub.MerchantID, sub.Mode, "payment.failed", map[string]any{
-		"subscription_id": sub.ID, "invoice_id": inv.ID, "reason": res.FailureReason,
+		"subscription_id": sub.ID, "invoice_id": inv.ID,
+		"amount_minor": amount, "currency": price.Currency, "reason": res.FailureReason,
 	})
 	return false, e.onChargeFailed(ctx, sub, inv.ID, now)
 }
@@ -285,6 +287,9 @@ func (e *Engine) onChargeFailed(ctx context.Context, sub sqlc.Subscription, invo
 	}); err != nil {
 		return fmt.Errorf("create dunning attempt: %w", err)
 	}
+	e.emit.Emit(sub.MerchantID, sub.Mode, "subscription.dunning_scheduled", map[string]any{
+		"subscription_id": sub.ID, "attempt": attemptNo, "next_retry": retryAt,
+	})
 	e.logger.Warn("billing: charge failed, retry scheduled",
 		"subscription_id", sub.ID, "merchant_id", sub.MerchantID, "attempt", attemptNo, "next_retry", retryAt)
 	return nil
