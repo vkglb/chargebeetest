@@ -491,9 +491,20 @@ td .delta { margin-top: 0; }
   margin-top: 14px;
   justify-content: center;
 }
-.legend-item { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; }
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  cursor: default;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.legend-item:hover, .legend-item.active { background: var(--panel-2); transform: translateY(-1px); }
+.legend-item.active .legend-label { color: var(--text); }
 .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
-.legend-label { color: var(--muted); text-transform: capitalize; }
+.legend-label { color: var(--muted); text-transform: capitalize; transition: color 0.15s ease; }
 .legend-count { color: var(--text); font-weight: 600; }
 .zoomable { cursor: ew-resize; }
 .zoomable * { user-select: none; }

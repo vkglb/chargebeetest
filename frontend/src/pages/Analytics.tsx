@@ -10,6 +10,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Sector,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -36,6 +37,34 @@ function cumulative(series?: { value: number }[]): number[] {
   let acc = 0;
   (series ?? []).forEach((p) => out.push((acc += p.value)));
   return out.length ? [0, ...out] : out;
+}
+
+// Hovered donut segment: pop it out slightly and add an outer ring.
+function renderActiveSlice(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <g>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 6}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+      />
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={outerRadius + 9}
+        outerRadius={outerRadius + 12}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        opacity={0.45}
+      />
+    </g>
+  );
 }
 
 // Build feed events from stored records, so the live feed shows recent real
@@ -155,6 +184,7 @@ export default function Analytics() {
   const [live, setLive] = useState(false);
   const [recent, setRecent] = useState<Transaction[]>([]);
   const [checkout, setCheckout] = useState<CheckoutAnalytics | null>(null);
+  const [activeSlice, setActiveSlice] = useState<number | undefined>(undefined);
 
   async function load(seedFeed = false) {
     const [a, txns, subs, co] = await Promise.all([
@@ -432,9 +462,16 @@ export default function Analytics() {
                   innerRadius={50}
                   outerRadius={80}
                   paddingAngle={2}
+                  onMouseEnter={(_: unknown, i: number) => setActiveSlice(i)}
+                  onMouseLeave={() => setActiveSlice(undefined)}
+                  {...({ activeIndex: activeSlice, activeShape: renderActiveSlice } as Record<string, unknown>)}
                 >
-                  {data.status_breakdown.map((s) => (
-                    <Cell key={s.status} fill={STATUS_COLORS[s.status] ?? "#9aa3b2"} />
+                  {data.status_breakdown.map((s, i) => (
+                    <Cell
+                      key={s.status}
+                      fill={STATUS_COLORS[s.status] ?? "#9aa3b2"}
+                      opacity={activeSlice === undefined || activeSlice === i ? 1 : 0.45}
+                    />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ background: "#171a21", border: "1px solid #2a2f3a", borderRadius: 8 }} />
@@ -445,8 +482,13 @@ export default function Analytics() {
           )}
           {data && data.status_breakdown.length > 0 && (
             <div className="status-legend">
-              {data.status_breakdown.map((s) => (
-                <div key={s.status} className="legend-item">
+              {data.status_breakdown.map((s, i) => (
+                <div
+                  key={s.status}
+                  className={`legend-item ${activeSlice === i ? "active" : ""}`}
+                  onMouseEnter={() => setActiveSlice(i)}
+                  onMouseLeave={() => setActiveSlice(undefined)}
+                >
                   <span
                     className="legend-dot"
                     style={{ background: STATUS_COLORS[s.status] ?? "#9aa3b2" }}
