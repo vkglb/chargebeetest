@@ -17,9 +17,11 @@ import {
 } from "recharts";
 import {
   api,
+  getMode,
   type Analytics as AnalyticsData,
   type MetricDelta,
   type Transaction,
+  type Subscription,
 } from "../api/client";
 import { useRealtime, type LiveEvent } from "../lib/useRealtime";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
@@ -34,6 +36,34 @@ function cumulative(series?: { value: number }[]): number[] {
   return out.length ? [0, ...out] : out;
 }
 
+// Build feed events from stored records, so the live feed shows recent real
+// activity on load (before any new WebSocket events arrive).
+function txnToEvent(t: Transaction): LiveEvent {
+  return {
+    type:
+      t.status === "succeeded"
+        ? "payment.succeeded"
+        : t.status === "failed"
+          ? "payment.failed"
+          : "invoice.created",
+    mode: getMode(),
+    created_at: t.created_at,
+    data: {
+      amount_minor: t.amount_minor,
+      currency: t.currency,
+      reason: t.failure_reason ?? undefined,
+    },
+  };
+}
+function subToEvent(s: Subscription): LiveEvent {
+  return {
+    type: s.status === "cancelled" ? "subscription.cancelled" : "subscription.created",
+    mode: getMode(),
+    created_at: s.created_at,
+    data: { subscription_id: s.id },
+  };
+}
+
 // Turn a raw realtime event into a human-readable line for the live feed —
 // surfacing the billing action in progress (payment, dunning retry, next bill).
 function describeEvent(e: LiveEvent): { label: string; detail: string; cls: string } {
@@ -42,7 +72,7 @@ function describeEvent(e: LiveEvent): { label: string; detail: string; cls: stri
   const when = (v: unknown) => (v ? formatDateTimeShort(String(v)) : "");
   switch (e.type) {
     case "subscription.created":
-      return { label: "New subscription", detail: "via checkout", cls: "trialing" };
+      return { label: "New subscription", detail: "", cls: "trialing" };
     case "invoice.created":
       return { label: "Invoice created", detail: money(d.total_minor, d.currency), cls: "open" };
     case "payment.succeeded":
@@ -73,8 +103,6 @@ function describeEvent(e: LiveEvent): { label: string; detail: string; cls: stri
       return { label: "Marked unpaid", detail: String(d.reason || ""), cls: "unpaid" };
     case "subscription.cancelled":
       return { label: "Subscription cancelled", detail: d.reason ? String(d.reason) : "", cls: "cancelled" };
-    case "test.ping":
-      return { label: "Test event", detail: String(d.message || ""), cls: "trialing" };
     default:
       return { label: e.type, detail: "", cls: "open" };
   }
@@ -125,25 +153,27 @@ export default function Analytics() {
   const [live, setLive] = useState(false);
   const [recent, setRecent] = useState<Transaction[]>([]);
 
-  async function load() {
-    const [a, txns] = await Promise.all([
+  async function load(seedFeed = false) {
+    const [a, txns, subs] = await Promise.all([
       api.get<AnalyticsData>("/v1/analytics"),
       api.get<Transaction[]>("/v1/transactions"),
+      api.get<Subscription[]>("/v1/subscriptions"),
     ]);
     setData(a);
-    setRecent((txns ?? []).slice(0, 8));
-  }
-  useEffect(() => {
-    load().catch((e) => setError(e.message));
-  }, []);
-
-  async function sendTestEvent() {
-    try {
-      await api.post("/v1/dev/emit-test");
-    } catch {
-      /* ignore */
+    const allTxns = txns ?? [];
+    setRecent(allTxns.slice(0, 8));
+    // Seed the live feed with a mix of recent real events (payments + sub
+    // changes) so it shows activity on load; WebSocket events then prepend.
+    if (seedFeed) {
+      const events = [...allTxns.map(txnToEvent), ...(subs ?? []).map(subToEvent)]
+        .sort((x, y) => (x.created_at < y.created_at ? 1 : -1))
+        .slice(0, 12);
+      setFeed(events);
     }
   }
+  useEffect(() => {
+    load(true).catch((e) => setError(e.message));
+  }, []);
 
   // Live: prepend incoming events to the feed and refresh the charts.
   useRealtime((e) => {
@@ -395,19 +425,13 @@ export default function Analytics() {
         <div className="panel" style={{ flex: 1 }}>
           <div className="panel-head">
             <h3>Live activity</h3>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <button className="link-btn" onClick={sendTestEvent}>
-                Send test event
-              </button>
-              <span className={live ? "live-pill on" : "live-pill"}>
-                <span className="live-dot" /> {live ? "Live" : "Realtime"}
-              </span>
-            </div>
+            <span className={live ? "live-pill on" : "live-pill"}>
+              <span className="live-dot" /> {live ? "Live" : "Realtime"}
+            </span>
           </div>
           {feed.length === 0 ? (
             <div className="empty">
-              Waiting for events… click “Send test event”, or run a billing cycle, to see it
-              stream here in real time.
+              No activity yet — payments and subscription changes appear here in real time.
             </div>
           ) : (
             <table>
