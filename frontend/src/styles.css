@@ -577,6 +577,21 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 tbody tr:hover { background: var(--panel-2); }
 .empty { color: var(--muted); padding: 24px; text-align: center; }
 
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.page-info { color: var(--muted); font-size: 12.5px; }
+.page-controls { display: flex; align-items: center; gap: 12px; }
+.page-cur { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.page-btn { width: auto; padding: 6px 12px; font-size: 13px; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ── Panel header + search ────────────────────────────────── */
 .panel-head {
   display: flex;

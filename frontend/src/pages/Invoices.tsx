@@ -4,12 +4,16 @@ import { api, type Invoice, type Customer } from "../api/client";
 import { formatMoney, formatDate } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+import Pagination from "../components/Pagination";
+
+const PAGE_SIZE = 20;
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
   async function load() {
@@ -34,6 +38,11 @@ export default function Invoices() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoices, q, customers]);
+
+  // Reset to page 1 whenever the filter changes.
+  useEffect(() => setPage(1), [q]);
+  const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div>
@@ -73,7 +82,7 @@ export default function Invoices() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((i) => (
+              {paged.map((i) => (
                 <tr key={i.id}>
                   <td className="mono">
                     <Link to={`/invoices/${i.id}`} className="row-link">
@@ -94,6 +103,13 @@ export default function Invoices() {
             </tbody>
           </table>
         )}
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+        />
       </div>
     </div>
   );
