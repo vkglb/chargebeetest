@@ -3,6 +3,9 @@ import { api, type Coupon } from "../api/client";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+import Pagination from "../components/Pagination";
+
+const PAGE_SIZE = 20;
 
 const ARCHIVE_REASONS = [
   { value: "revoked", label: "Customer revoked" },
@@ -21,6 +24,7 @@ export default function Coupons() {
   const [maxRedemptions, setMaxRedemptions] = useState("");
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
   async function load() {
@@ -36,6 +40,10 @@ export default function Coupons() {
       [c.code, c.discount_type].some((f) => f.toLowerCase().includes(q)),
     );
   }, [coupons, q]);
+
+  useEffect(() => setPage(1), [q]);
+  const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -183,7 +191,7 @@ export default function Coupons() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => {
+              {paged.map((c) => {
                 const archived = c.status === "archived";
                 return (
                   <tr key={c.id} style={archived ? { opacity: 0.55 } : undefined}>
@@ -259,6 +267,13 @@ export default function Coupons() {
             </tbody>
           </table>
         )}
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

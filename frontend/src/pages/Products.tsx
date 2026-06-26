@@ -3,7 +3,10 @@ import { api, type Product, type Price } from "../api/client";
 import { formatMoney } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+import Pagination from "../components/Pagination";
 import HelpTip from "../components/HelpTip";
+
+const PAGE_SIZE = 20;
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -20,6 +23,7 @@ export default function Products() {
   const [intervalCount, setIntervalCount] = useState("1");
   const [trialDays, setTrialDays] = useState("0");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
   async function load() {
@@ -83,6 +87,10 @@ export default function Products() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prices, q, products]);
+
+  useEffect(() => setPage(1), [q]);
+  const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div>
@@ -242,7 +250,7 @@ export default function Products() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => (
+              {paged.map((p) => (
                 <tr key={p.id}>
                   <td>{productName(p.product_id)}</td>
                   <td>{p.nickname || "—"}</td>
@@ -257,6 +265,13 @@ export default function Products() {
             </tbody>
           </table>
         )}
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

@@ -21,6 +21,9 @@ import {
 import { formatDateTimeShort, formatMoney } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+import Pagination from "../components/Pagination";
+
+const PAGE_SIZE = 20;
 import { CANCEL_REASONS } from "../lib/subscriptions";
 
 export default function Subscriptions() {
@@ -33,6 +36,7 @@ export default function Subscriptions() {
   const [quantity, setQuantity] = useState("1");
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
   const [billing, setBilling] = useState(false);
   const [billResult, setBillResult] = useState<BillRunResult | null>(null);
@@ -140,6 +144,10 @@ export default function Subscriptions() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subs, q, customers, prices, products]);
+
+  useEffect(() => setPage(1), [q]);
+  const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div>
@@ -269,7 +277,7 @@ export default function Subscriptions() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((s) => {
+              {paged.map((s) => {
                 const cancellable = ["active", "trialing", "past_due"].includes(s.status);
                 return (
                   <tr key={s.id}>
@@ -316,6 +324,13 @@ export default function Subscriptions() {
             </tbody>
           </table>
         )}
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

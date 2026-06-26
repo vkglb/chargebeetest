@@ -4,7 +4,10 @@ import { api, type Customer } from "../api/client";
 import { formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+import Pagination from "../components/Pagination";
 import { COUNTRIES, countryName } from "../lib/countries";
+
+const PAGE_SIZE = 20;
 
 export default function Customers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -14,6 +17,7 @@ export default function Customers() {
   const [country, setCountry] = useState("US");
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
   const filtered = useMemo(() => {
@@ -24,6 +28,10 @@ export default function Customers() {
       ),
     );
   }, [customers, q]);
+
+  useEffect(() => setPage(1), [q]);
+  const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   async function load() {
     setCustomers(await api.get<Customer[]>("/v1/customers"));
@@ -130,7 +138,7 @@ export default function Customers() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
+              {paged.map((c) => (
                 <tr key={c.id}>
                   <td>
                     <Link to={`/customers/${c.id}`} className="row-link">
@@ -146,6 +154,13 @@ export default function Customers() {
             </tbody>
           </table>
         )}
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

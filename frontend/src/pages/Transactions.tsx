@@ -3,11 +3,15 @@ import { api, type Transaction } from "../api/client";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+import Pagination from "../components/Pagination";
+
+const PAGE_SIZE = 20;
 
 export default function Transactions() {
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
   async function load() {
@@ -23,6 +27,10 @@ export default function Transactions() {
       [t.gateway_txn_ref, t.status, t.failure_reason].some((f) => f?.toLowerCase().includes(q)),
     );
   }, [txns, q]);
+
+  useEffect(() => setPage(1), [q]);
+  const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div>
@@ -61,7 +69,7 @@ export default function Transactions() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t) => (
+              {paged.map((t) => (
                 <tr key={t.id}>
                   <td className="mono">{t.gateway_txn_ref || "—"}</td>
                   <td>{formatMoney(t.amount_minor, t.currency)}</td>
@@ -77,6 +85,13 @@ export default function Transactions() {
             </tbody>
           </table>
         )}
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+        />
       </div>
     </div>
   );
