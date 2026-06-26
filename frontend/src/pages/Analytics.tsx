@@ -25,10 +25,13 @@ import { useRealtime, type LiveEvent } from "../lib/useRealtime";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
 import Sparkline from "../components/Sparkline";
 
-// Running total of a daily series — gives sparklines a clean upward growth line.
+// Running total of a daily series, seeded with a leading 0 so even a single
+// day of data still renders as a clean 0→value growth line in the sparkline.
 function cumulative(series?: { value: number }[]): number[] {
+  const out: number[] = [];
   let acc = 0;
-  return (series ?? []).map((p) => (acc += p.value));
+  (series ?? []).forEach((p) => out.push((acc += p.value)));
+  return out.length ? [0, ...out] : out;
 }
 
 // Turn a raw realtime event into a human-readable line for the live feed —
