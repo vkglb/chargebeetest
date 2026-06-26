@@ -67,16 +67,23 @@ func (s *Server) handleSeed(w http.ResponseWriter, r *http.Request) {
 		AccountRef: pgText("sandbox-simulator"), EncryptedCredentials: []byte("sandbox"),
 	})
 
-	// ── Customers + subscriptions (varied statuses) ──────────
+	rng := rand.New(rand.NewSource(now.UnixNano()))
+
+	// ── Customers + subscriptions (varied statuses, backdated) ──────────
+	// created_at is spread across the last 30 days so the customers-by-day,
+	// subscriptions-by-day and MRR-by-day series (and their sparklines) show a
+	// realistic shape rather than a single same-day spike.
 	names := []string{"Jane Doe", "Sam Park", "Acme Corp", "Globex", "Initech", "Umbrella", "Hooli", "Stark Inc"}
 	countries := []string{"US", "GB", "US", "CA", "IN", "DE", "AU", "US"}
 	statuses := []string{"active", "active", "active", "trialing", "past_due", "cancelled"}
 	for i, name := range names {
 		email := fmt.Sprintf("user%d+%s@example.com", i, uuid.NewString()[:6])
-		cust, err := s.q.CreateCustomer(ctx, sqlc.CreateCustomerParams{
+		joined := now.AddDate(0, 0, -rng.Intn(30)).Add(time.Duration(rng.Intn(86400)) * time.Second)
+		cust, err := s.q.SeedCustomer(ctx, sqlc.SeedCustomerParams{
 			MerchantID: mid, Mode: md, Email: email, Name: pgText(name),
 			GatewayCustomerRef: pgText("cus_sbx_" + uuid.NewString()[:12]),
 			Country:            countries[i%len(countries)],
+			CreatedAt:          pgTimestamptz(joined),
 		})
 		if err != nil {
 			continue
@@ -99,15 +106,15 @@ func (s *Server) handleSeed(w http.ResponseWriter, r *http.Request) {
 		pIdx := i % len(priceIDs)
 		status := statuses[i%len(statuses)]
 		ps, pe, _ := billing.PeriodBounds(now, "month", 1)
-		_, _ = s.q.CreateSubscription(ctx, sqlc.CreateSubscriptionParams{
+		_, _ = s.q.SeedSubscription(ctx, sqlc.SeedSubscriptionParams{
 			MerchantID: mid, Mode: md, CustomerID: cust.ID, PriceID: priceIDs[pIdx],
 			PaymentMethodID: pmID, Status: status, Quantity: 1,
 			CurrentPeriodStart: timePtr(ps), CurrentPeriodEnd: timePtr(pe), NextBillingAt: timePtr(pe),
+			CreatedAt: pgTimestamptz(joined),
 		})
 	}
 
 	// ── 30 days of succeeded transactions (fills the revenue chart) ──
-	rng := rand.New(rand.NewSource(now.UnixNano()))
 	count := 0
 	for day := 29; day >= 0; day-- {
 		txPerDay := rng.Intn(4) + 1

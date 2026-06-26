@@ -452,6 +452,66 @@ func (q *Queries) MarkSubscriptionsDueNow(ctx context.Context, arg MarkSubscript
 	return result.RowsAffected(), nil
 }
 
+const seedSubscription = `-- name: SeedSubscription :one
+INSERT INTO subscriptions (
+    merchant_id, mode, customer_id, price_id, payment_method_id,
+    status, quantity, current_period_start, current_period_end, next_billing_at, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason
+`
+
+type SeedSubscriptionParams struct {
+	MerchantID         uuid.UUID          `json:"merchant_id"`
+	Mode               string             `json:"mode"`
+	CustomerID         uuid.UUID          `json:"customer_id"`
+	PriceID            uuid.UUID          `json:"price_id"`
+	PaymentMethodID    pgtype.UUID        `json:"payment_method_id"`
+	Status             string             `json:"status"`
+	Quantity           int32              `json:"quantity"`
+	CurrentPeriodStart *time.Time         `json:"current_period_start"`
+	CurrentPeriodEnd   *time.Time         `json:"current_period_end"`
+	NextBillingAt      *time.Time         `json:"next_billing_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+// Insert a subscription with a backdated created_at (dev seeder, for realistic
+// subscriptions-by-day / MRR-by-day spread).
+func (q *Queries) SeedSubscription(ctx context.Context, arg SeedSubscriptionParams) (Subscription, error) {
+	row := q.db.QueryRow(ctx, seedSubscription,
+		arg.MerchantID,
+		arg.Mode,
+		arg.CustomerID,
+		arg.PriceID,
+		arg.PaymentMethodID,
+		arg.Status,
+		arg.Quantity,
+		arg.CurrentPeriodStart,
+		arg.CurrentPeriodEnd,
+		arg.NextBillingAt,
+		arg.CreatedAt,
+	)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.CustomerID,
+		&i.PriceID,
+		&i.PaymentMethodID,
+		&i.Status,
+		&i.Quantity,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.NextBillingAt,
+		&i.CancelAtPeriodEnd,
+		&i.CancelledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mode,
+		&i.CancelReason,
+	)
+	return i, err
+}
+
 const setSubscriptionRetry = `-- name: SetSubscriptionRetry :one
 UPDATE subscriptions
 SET status = 'past_due', next_billing_at = $2, updated_at = now()

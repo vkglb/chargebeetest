@@ -224,6 +224,49 @@ func (q *Queries) ListCustomersByMerchant(ctx context.Context, arg ListCustomers
 	return items, nil
 }
 
+const seedCustomer = `-- name: SeedCustomer :one
+INSERT INTO customers (merchant_id, mode, email, name, gateway_customer_ref, country, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, merchant_id, email, name, gateway_customer_ref, metadata, created_at, mode, country
+`
+
+type SeedCustomerParams struct {
+	MerchantID         uuid.UUID          `json:"merchant_id"`
+	Mode               string             `json:"mode"`
+	Email              string             `json:"email"`
+	Name               pgtype.Text        `json:"name"`
+	GatewayCustomerRef pgtype.Text        `json:"gateway_customer_ref"`
+	Country            string             `json:"country"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+// Insert a customer with a backdated created_at (used by the dev seeder so the
+// customers-by-day series has a realistic spread).
+func (q *Queries) SeedCustomer(ctx context.Context, arg SeedCustomerParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, seedCustomer,
+		arg.MerchantID,
+		arg.Mode,
+		arg.Email,
+		arg.Name,
+		arg.GatewayCustomerRef,
+		arg.Country,
+		arg.CreatedAt,
+	)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.Email,
+		&i.Name,
+		&i.GatewayCustomerRef,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.Mode,
+		&i.Country,
+	)
+	return i, err
+}
+
 const setCustomerGatewayRef = `-- name: SetCustomerGatewayRef :one
 UPDATE customers
 SET gateway_customer_ref = $2

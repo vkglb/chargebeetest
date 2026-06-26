@@ -5,6 +5,15 @@ INSERT INTO subscriptions (
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
+-- name: SeedSubscription :one
+-- Insert a subscription with a backdated created_at (dev seeder, for realistic
+-- subscriptions-by-day / MRR-by-day spread).
+INSERT INTO subscriptions (
+    merchant_id, mode, customer_id, price_id, payment_method_id,
+    status, quantity, current_period_start, current_period_end, next_billing_at, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING *;
+
 -- name: GetSubscription :one
 SELECT * FROM subscriptions
 WHERE id = $1 AND merchant_id = $2;

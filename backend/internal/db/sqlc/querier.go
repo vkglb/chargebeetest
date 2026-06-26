@@ -106,6 +106,12 @@ type Querier interface {
 	// intraday "today vs yesterday" gross-volume chart.
 	RevenueByHourBetween(ctx context.Context, arg RevenueByHourBetweenParams) ([]RevenueByHourBetweenRow, error)
 	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error
+	// Insert a customer with a backdated created_at (used by the dev seeder so the
+	// customers-by-day series has a realistic spread).
+	SeedCustomer(ctx context.Context, arg SeedCustomerParams) (Customer, error)
+	// Insert a subscription with a backdated created_at (dev seeder, for realistic
+	// subscriptions-by-day / MRR-by-day spread).
+	SeedSubscription(ctx context.Context, arg SeedSubscriptionParams) (Subscription, error)
 	// Insert a backdated transaction (used by the dev seeder to populate charts).
 	SeedTransaction(ctx context.Context, arg SeedTransactionParams) error
 	// Archive (disable) or re-activate a coupon, recording when/why on archive.

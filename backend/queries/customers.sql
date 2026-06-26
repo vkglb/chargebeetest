@@ -3,6 +3,13 @@ INSERT INTO customers (merchant_id, mode, email, name, gateway_customer_ref, cou
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
+-- name: SeedCustomer :one
+-- Insert a customer with a backdated created_at (used by the dev seeder so the
+-- customers-by-day series has a realistic spread).
+INSERT INTO customers (merchant_id, mode, email, name, gateway_customer_ref, country, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
 -- name: GetCustomer :one
 SELECT * FROM customers
 WHERE id = $1 AND merchant_id = $2;
