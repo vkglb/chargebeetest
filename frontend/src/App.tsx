@@ -11,6 +11,7 @@ import Subscriptions from "./pages/Subscriptions";
 import Gateways from "./pages/Gateways";
 import Coupons from "./pages/Coupons";
 import Invoices from "./pages/Invoices";
+import InvoiceDetail from "./pages/InvoiceDetail";
 import Transactions from "./pages/Transactions";
 import Webhooks from "./pages/Webhooks";
 import ApiKeys from "./pages/ApiKeys";
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/subscriptions" element={<Subscriptions />} />
         <Route path="/checkouts" element={<Checkouts />} />
         <Route path="/invoices" element={<Invoices />} />
+        <Route path="/invoices/:id" element={<InvoiceDetail />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/coupons" element={<Coupons />} />
         <Route path="/analytics" element={<Analytics />} />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, type Invoice, type Customer } from "../api/client";
 import { formatMoney, formatDate } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
@@ -74,7 +75,11 @@ export default function Invoices() {
             <tbody>
               {filtered.map((i) => (
                 <tr key={i.id}>
-                  <td className="mono">{i.id.slice(0, 8)}…</td>
+                  <td className="mono">
+                    <Link to={`/invoices/${i.id}`} className="row-link">
+                      {i.id.slice(0, 8)}…
+                    </Link>
+                  </td>
                   <td>{customerEmail(i.customer_id)}</td>
                   <td>{formatMoney(i.total_minor, i.currency)}</td>
                   <td>
