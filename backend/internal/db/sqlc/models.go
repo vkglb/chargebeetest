@@ -62,6 +62,8 @@ type Coupon struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	Mode           string             `json:"mode"`
 	Status         string             `json:"status"`
+	ArchivedAt     *time.Time         `json:"archived_at"`
+	ArchiveReason  string             `json:"archive_reason"`
 }
 
 type Customer struct {

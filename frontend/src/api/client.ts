@@ -158,6 +158,8 @@ export interface Coupon {
   max_redemptions: { Int32: number; Valid: boolean } | number | null;
   redemptions: number;
   status?: string; // active | archived
+  archived_at?: string | null;
+  archive_reason?: string; // expired | campaign_over | revoked | manual
   created_at: string;
 }
 

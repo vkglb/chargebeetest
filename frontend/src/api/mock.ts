@@ -745,6 +745,13 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         const c = db.coupons.find((x) => x.id === id);
         if (!c) throw new Error("coupon not found");
         c.status = body?.status;
+        if (body?.status === "archived") {
+          c.archived_at = nowISO();
+          c.archive_reason = body?.reason || "manual";
+        } else {
+          c.archived_at = null;
+          c.archive_reason = "";
+        }
         save(db);
         return c as T;
       }

@@ -13,9 +13,11 @@ SELECT * FROM coupons
 WHERE merchant_id = $1 AND mode = $2 AND code = $3;
 
 -- name: SetCouponStatus :one
--- Archive (disable) or re-activate a coupon.
+-- Archive (disable) or re-activate a coupon, recording when/why on archive.
 UPDATE coupons
-SET status = $3
+SET status = $3,
+    archived_at = CASE WHEN $3 = 'archived' THEN now() ELSE NULL END,
+    archive_reason = CASE WHEN $3 = 'archived' THEN $4::text ELSE '' END
 WHERE id = $1 AND merchant_id = $2
 RETURNING *;
 

@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type Coupon } from "../api/client";
-import { formatMoney } from "../lib/format";
+import { formatMoney, formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
+
+const ARCHIVE_REASONS = [
+  { value: "revoked", label: "Customer revoked" },
+  { value: "expired", label: "Expired" },
+  { value: "campaign_over", label: "Campaign over" },
+  { value: "manual", label: "Manually disabled" },
+];
+const reasonLabel = (r?: string) =>
+  ARCHIVE_REASONS.find((x) => x.value === r)?.label ?? (r || "—");
 
 export default function Coupons() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -49,12 +58,24 @@ export default function Coupons() {
   }
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [disableId, setDisableId] = useState<string | null>(null);
+  const [disableReason, setDisableReason] = useState("revoked");
 
-  async function toggleStatus(c: Coupon) {
+  async function activate(c: Coupon) {
     setError("");
-    const next = c.status === "archived" ? "active" : "archived";
     try {
-      await api.patch(`/v1/coupons/${c.id}`, { status: next });
+      await api.patch(`/v1/coupons/${c.id}`, { status: "active" });
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function archive(id: string) {
+    setError("");
+    try {
+      await api.patch(`/v1/coupons/${id}`, { status: "archived", reason: disableReason });
+      setDisableId(null);
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -155,6 +176,9 @@ export default function Coupons() {
                 <th>Redeemed</th>
                 <th>Max</th>
                 <th>Status</th>
+                <th>Created</th>
+                <th>Revoked</th>
+                <th>Reason</th>
                 <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
@@ -172,6 +196,9 @@ export default function Coupons() {
                         {archived ? "archived" : "active"}
                       </span>
                     </td>
+                    <td className="mono">{formatDateTimeShort(c.created_at)}</td>
+                    <td className="mono">{archived ? formatDateTimeShort(c.archived_at ?? null) : "—"}</td>
+                    <td>{archived ? reasonLabel(c.archive_reason) : "—"}</td>
                     <td style={{ textAlign: "right" }}>
                       {confirmDelete === c.id ? (
                         <span className="row-actions">
@@ -183,11 +210,43 @@ export default function Coupons() {
                             Cancel
                           </button>
                         </span>
+                      ) : disableId === c.id ? (
+                        <span className="row-actions">
+                          <select
+                            value={disableReason}
+                            onChange={(e) => setDisableReason(e.target.value)}
+                            style={{ width: "auto", padding: "4px 8px", fontSize: 12 }}
+                          >
+                            {ARCHIVE_REASONS.map((rsn) => (
+                              <option key={rsn.value} value={rsn.value}>
+                                {rsn.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button className="link-btn danger" onClick={() => archive(c.id)}>
+                            Disable
+                          </button>
+                          <button className="link-btn" onClick={() => setDisableId(null)}>
+                            Cancel
+                          </button>
+                        </span>
                       ) : (
                         <span className="row-actions">
-                          <button className="link-btn" onClick={() => toggleStatus(c)}>
-                            {archived ? "Activate" : "Disable"}
-                          </button>
+                          {archived ? (
+                            <button className="link-btn" onClick={() => activate(c)}>
+                              Activate
+                            </button>
+                          ) : (
+                            <button
+                              className="link-btn"
+                              onClick={() => {
+                                setDisableReason("revoked");
+                                setDisableId(c.id);
+                              }}
+                            >
+                              Disable
+                            </button>
+                          )}
                           <button className="link-btn danger" onClick={() => setConfirmDelete(c.id)}>
                             Remove
                           </button>

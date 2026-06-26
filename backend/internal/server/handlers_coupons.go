@@ -56,10 +56,12 @@ func (s *Server) handleListCoupons(w http.ResponseWriter, r *http.Request) {
 
 type updateCouponRequest struct {
 	Status string `json:"status"` // active | archived
+	Reason string `json:"reason"` // expired | campaign_over | revoked | manual
 }
 
 // handleUpdateCoupon changes a coupon's status (active ⇄ archived). Archived
-// coupons are disabled but kept on record with their redemption history.
+// coupons are disabled but kept on record with their redemption history, plus
+// when and why they were archived.
 func (s *Server) handleUpdateCoupon(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -71,10 +73,14 @@ func (s *Server) handleUpdateCoupon(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "status must be 'active' or 'archived'")
 		return
 	}
+	if req.Status == "archived" && req.Reason == "" {
+		req.Reason = "manual"
+	}
 	coupon, err := s.q.SetCouponStatus(r.Context(), sqlc.SetCouponStatusParams{
 		ID:         id,
 		MerchantID: merchantID(r),
 		Status:     req.Status,
+		Column4:    req.Reason,
 	})
 	if err != nil {
 		writeError(w, http.StatusNotFound, "coupon not found")

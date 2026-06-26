@@ -101,7 +101,7 @@ type Querier interface {
 	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error
 	// Insert a backdated transaction (used by the dev seeder to populate charts).
 	SeedTransaction(ctx context.Context, arg SeedTransactionParams) error
-	// Archive (disable) or re-activate a coupon.
+	// Archive (disable) or re-activate a coupon, recording when/why on archive.
 	SetCouponStatus(ctx context.Context, arg SetCouponStatusParams) (Coupon, error)
 	SetCustomerGatewayRef(ctx context.Context, arg SetCustomerGatewayRefParams) (Customer, error)
 	SetSubscriptionStatus(ctx context.Context, arg SetSubscriptionStatusParams) (Subscription, error)
