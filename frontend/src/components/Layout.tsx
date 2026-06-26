@@ -105,6 +105,12 @@ export default function Layout() {
             Live
           </button>
         </div>
+        <button
+          className={`mode-cta ${current}`}
+          onClick={() => switchMode(current === "test" ? "live" : "test")}
+        >
+          {current === "test" ? "Switch to Live mode →" : "← Switch to Test mode"}
+        </button>
         <nav>
           {navGroups.map((group, gi) => {
             const isCollapsed = !!group.title && collapsed[group.title];
