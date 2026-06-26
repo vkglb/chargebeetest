@@ -365,6 +365,14 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         revenue_by_day.push({ day, value: Math.round((Math.sin(i / 4) + 1.6) * 4000 + Math.random() * 2500) });
         subscriptions_by_day.push({ day, value: Math.round(Math.random() * 3) });
       }
+      const customers_by_day = revenue_by_day.map((p) => ({
+        day: p.day,
+        value: Math.round(Math.random() * 2),
+      }));
+      const mrr_added_by_day = revenue_by_day.map((p) => ({
+        day: p.day,
+        value: Math.round(Math.random() * 1500),
+      }));
       const total = revenue_by_day.reduce((a, b) => a + b.value, 0);
       const activeSubs = statusMap["active"] || 0;
       const customers = db.customers.length;
@@ -402,6 +410,8 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         })),
         revenue_by_day,
         subscriptions_by_day,
+        customers_by_day,
+        mrr_added_by_day,
         status_breakdown: Object.entries(statusMap).map(([status, count]) => ({ status, count })),
         today_hourly,
         yesterday_hourly,

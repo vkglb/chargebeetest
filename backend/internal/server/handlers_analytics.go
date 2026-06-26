@@ -53,6 +53,18 @@ func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		subSeries = append(subSeries, pointInt{Day: dateStr(row.Day), Value: row.Count})
 	}
 
+	custRows, _ := s.q.CustomersByDay(ctx, sqlc.CustomersByDayParams{MerchantID: mid, Mode: md})
+	custSeries := make([]pointInt, 0, len(custRows))
+	for _, row := range custRows {
+		custSeries = append(custSeries, pointInt{Day: dateStr(row.Day), Value: row.Count})
+	}
+
+	mrrRows, _ := s.q.MRRAddedByDay(ctx, sqlc.MRRAddedByDayParams{MerchantID: mid, Mode: md})
+	mrrSeries := make([]pointInt, 0, len(mrrRows))
+	for _, row := range mrrRows {
+		mrrSeries = append(mrrSeries, pointInt{Day: dateStr(row.Day), Value: row.AmountMinor})
+	}
+
 	// ── Period-over-period deltas ──────────────────────────────
 	// Flow metrics (revenue): last 30d vs the 30d before. Stock metrics
 	// (MRR, active subs, customers): now vs their value as of 30 days ago.
@@ -114,6 +126,8 @@ func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		},
 		"revenue_by_day":       revenueSeries,
 		"subscriptions_by_day": subSeries,
+		"customers_by_day":     custSeries,
+		"mrr_added_by_day":     mrrSeries,
 		"status_breakdown":     statusBreakdown,
 		"products":             products,
 		"today_hourly":         hourSeries(todayHourRows),

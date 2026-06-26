@@ -445,6 +445,8 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 }
 .stat .label { color: var(--muted); font-size: 13px; }
 .stat .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
+.stat-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.sparkline { flex: 0 0 auto; display: block; opacity: 0.9; }
 
 /* Period-over-period delta indicator */
 .delta {

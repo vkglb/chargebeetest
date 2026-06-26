@@ -23,6 +23,13 @@ import {
 } from "../api/client";
 import { useRealtime, type LiveEvent } from "../lib/useRealtime";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
+import Sparkline from "../components/Sparkline";
+
+// Running total of a daily series — gives sparklines a clean upward growth line.
+function cumulative(series?: { value: number }[]): number[] {
+  let acc = 0;
+  return (series ?? []).map((p) => (acc += p.value));
+}
 
 // Turn a raw realtime event into a human-readable line for the live feed —
 // surfacing the billing action in progress (payment, dunning retry, next bill).
@@ -135,6 +142,12 @@ export default function Analytics() {
   const fmtDay = (d: string) => d.slice(5); // MM-DD
   const currency = "USD";
 
+  // Cumulative spark lines for the KPI cards.
+  const mrrSpark = cumulative(data?.mrr_added_by_day);
+  const revSpark = cumulative(data?.revenue_by_day);
+  const subsSpark = cumulative(data?.subscriptions_by_day);
+  const custSpark = cumulative(data?.customers_by_day);
+
   // Intraday gross-volume: cumulative revenue through the day, today (solid, up
   // to the current hour) vs yesterday (dashed, full day).
   const hourLabel = (h: number) => {
@@ -181,24 +194,36 @@ export default function Analytics() {
 
       <div className="stats">
         <div className="stat">
-          <div className="label">MRR</div>
+          <div className="stat-top">
+            <div className="label">MRR</div>
+            <Sparkline data={mrrSpark} color="#6c5ce7" />
+          </div>
           <div className="value">{data ? formatMoney(data.summary.mrr_minor, currency) : "…"}</div>
           <DeltaBadge d={data?.deltas?.mrr} />
         </div>
         <div className="stat">
-          <div className="label">Revenue (last 30d)</div>
+          <div className="stat-top">
+            <div className="label">Revenue (last 30d)</div>
+            <Sparkline data={revSpark} color="#2ecc71" />
+          </div>
           <div className="value">
             {data ? formatMoney(data.deltas?.revenue.current ?? data.summary.total_revenue_minor, currency) : "…"}
           </div>
           <DeltaBadge d={data?.deltas?.revenue} />
         </div>
         <div className="stat">
-          <div className="label">Active subscriptions</div>
+          <div className="stat-top">
+            <div className="label">Active subscriptions</div>
+            <Sparkline data={subsSpark} color="#6c5ce7" />
+          </div>
           <div className="value">{data ? data.summary.active_subscriptions : "…"}</div>
           <DeltaBadge d={data?.deltas?.active_subscriptions} />
         </div>
         <div className="stat">
-          <div className="label">Customers</div>
+          <div className="stat-top">
+            <div className="label">Customers</div>
+            <Sparkline data={custSpark} color="#4aa3ff" />
+          </div>
           <div className="value">{data ? data.summary.customers : "…"}</div>
           <DeltaBadge d={data?.deltas?.customers} />
         </div>

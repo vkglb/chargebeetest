@@ -254,6 +254,8 @@ export interface Analytics {
   products?: ProductMetric[];
   revenue_by_day: SeriesPoint[];
   subscriptions_by_day: SeriesPoint[];
+  customers_by_day?: SeriesPoint[];
+  mrr_added_by_day?: SeriesPoint[];
   status_breakdown: { status: string; count: number }[];
   today_hourly?: { hour: number; value: number }[];
   yesterday_hourly?: { hour: number; value: number }[];

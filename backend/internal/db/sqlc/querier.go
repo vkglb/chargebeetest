@@ -42,6 +42,8 @@ type Querier interface {
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error)
 	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
+	// New customers per day over the last 30 days (for the Customers sparkline).
+	CustomersByDay(ctx context.Context, arg CustomersByDayParams) ([]CustomersByDayRow, error)
 	// Permanently remove a coupon.
 	DeleteCoupon(ctx context.Context, arg DeleteCouponParams) (int64, error)
 	// Disconnect a gateway for a merchant + mode (removes the stored credentials).
@@ -85,6 +87,8 @@ type Querier interface {
 	ListTransactionsByMerchant(ctx context.Context, arg ListTransactionsByMerchantParams) ([]Transaction, error)
 	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]WebhookDelivery, error)
 	ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpointsParams) ([]WebhookEndpoint, error)
+	// MRR added per day by new active/trialing subscriptions (for the MRR sparkline).
+	MRRAddedByDay(ctx context.Context, arg MRRAddedByDayParams) ([]MRRAddedByDayRow, error)
 	// Recurring revenue from active/trialing subscriptions that existed at a cutoff.
 	MRRAsOf(ctx context.Context, arg MRRAsOfParams) (int64, error)
 	MarkInvoicePaid(ctx context.Context, id uuid.UUID) (Invoice, error)
