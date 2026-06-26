@@ -284,6 +284,13 @@ export interface BillRunResult {
   mode: string;
 }
 
+export interface CheckoutAnalytics {
+  total_visits: number;
+  completed: number;
+  visits_by_day: SeriesPoint[];
+  by_country: { country: string; count: number }[];
+}
+
 export interface BillingRun {
   id: string;
   mode: string;

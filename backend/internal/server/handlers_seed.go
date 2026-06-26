@@ -132,6 +132,27 @@ func (s *Server) handleSeed(w http.ResponseWriter, r *http.Request) {
 	// A few failed ones for realism.
 	seedFailed(ctx, s, mid, md, now, rng)
 
+	// ── Hosted-checkout visits (with countries) + some completed sessions ──
+	visitCountries := []string{"US", "US", "US", "GB", "IN", "DE", "CA", "AU", "FR", "BR", "SG", "GB"}
+	for day := 29; day >= 0; day-- {
+		visits := rng.Intn(6) + 2 // 2–7 visits/day
+		for v := 0; v < visits; v++ {
+			ts := now.AddDate(0, 0, -day).Add(time.Duration(rng.Intn(86400)) * time.Second)
+			_ = s.q.InsertCheckoutVisit(ctx, sqlc.InsertCheckoutVisitParams{
+				MerchantID: mid, Mode: md, SessionID: pgUUID(uuid.Nil),
+				Country: visitCountries[rng.Intn(len(visitCountries))], CreatedAt: pgTimestamptz(ts),
+			})
+		}
+		// Roughly half the days produce a completed checkout (for conversion).
+		if len(priceIDs) > 0 && rng.Float64() < 0.5 {
+			ts := now.AddDate(0, 0, -day)
+			_ = s.q.SeedCheckoutSession(ctx, sqlc.SeedCheckoutSessionParams{
+				MerchantID: mid, Mode: md, PriceID: priceIDs[rng.Intn(len(priceIDs))],
+				ExpiresAt: pgTimestamptz(ts.Add(24 * time.Hour)), CompletedAt: timePtr(ts),
+			})
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":       "seeded",
 		"products":     len(productCache),

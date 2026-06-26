@@ -29,3 +29,42 @@ SET status = 'completed',
     completed_at = now()
 WHERE id = $1
 RETURNING *;
+
+-- ── Hosted checkout visit analytics ────────────────────────────────
+
+-- name: InsertCheckoutVisit :exec
+INSERT INTO checkout_visits (merchant_id, mode, session_id, country, created_at)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: CountCheckoutVisits :one
+SELECT COUNT(*)::bigint AS count
+FROM checkout_visits
+WHERE merchant_id = $1 AND mode = $2 AND created_at >= now() - interval '30 days';
+
+-- name: CheckoutVisitsByDay :many
+SELECT (date_trunc('day', created_at))::date AS day,
+       COUNT(*)::bigint AS count
+FROM checkout_visits
+WHERE merchant_id = $1 AND mode = $2 AND created_at >= now() - interval '30 days'
+GROUP BY 1
+ORDER BY 1;
+
+-- name: CheckoutVisitsByCountry :many
+SELECT COALESCE(NULLIF(country, ''), 'Unknown') AS country,
+       COUNT(*)::bigint AS count
+FROM checkout_visits
+WHERE merchant_id = $1 AND mode = $2 AND created_at >= now() - interval '30 days'
+GROUP BY 1
+ORDER BY count DESC
+LIMIT 10;
+
+-- name: CountCompletedCheckouts :one
+SELECT COUNT(*)::bigint AS count
+FROM checkout_sessions
+WHERE merchant_id = $1 AND mode = $2 AND status = 'completed'
+  AND created_at >= now() - interval '30 days';
+
+-- name: SeedCheckoutSession :exec
+-- A backdated completed checkout session (dev seeder, for conversion stats).
+INSERT INTO checkout_sessions (merchant_id, mode, price_id, quantity, status, success_url, expires_at, completed_at, created_at)
+VALUES ($1, $2, $3, 1, 'completed', 'https://example.com/success', $4, $5, $5);

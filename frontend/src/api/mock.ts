@@ -480,6 +480,33 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
     case "GET /v1/billing-runs":
       return db.billingRuns as T;
 
+    case "GET /v1/analytics/checkout": {
+      const visits_by_day: { day: string; value: number }[] = [];
+      let total = 0;
+      for (let i = 29; i >= 0; i--) {
+        const day = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+        const v = Math.round(Math.random() * 6) + 2;
+        total += v;
+        visits_by_day.push({ day, value: v });
+      }
+      const fractions: [string, number][] = [
+        ["US", 0.4],
+        ["GB", 0.15],
+        ["IN", 0.12],
+        ["DE", 0.1],
+        ["CA", 0.08],
+        ["AU", 0.08],
+        ["FR", 0.07],
+      ];
+      const by_country = fractions.map(([country, f]) => ({ country, count: Math.round(total * f) }));
+      return {
+        total_visits: total,
+        completed: Math.round(total * 0.35),
+        visits_by_day,
+        by_country,
+      } as T;
+    }
+
     case "GET /v1/products":
       return db.products as T;
     case "POST /v1/products": {

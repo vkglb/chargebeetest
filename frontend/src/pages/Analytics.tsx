@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -22,9 +22,11 @@ import {
   type MetricDelta,
   type Transaction,
   type Subscription,
+  type CheckoutAnalytics,
 } from "../api/client";
 import { useRealtime, type LiveEvent } from "../lib/useRealtime";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
+import { countryName } from "../lib/countries";
 import Sparkline from "../components/Sparkline";
 
 // Running total of a daily series, seeded with a leading 0 so even a single
@@ -152,14 +154,17 @@ export default function Analytics() {
   const [feed, setFeed] = useState<LiveEvent[]>([]);
   const [live, setLive] = useState(false);
   const [recent, setRecent] = useState<Transaction[]>([]);
+  const [checkout, setCheckout] = useState<CheckoutAnalytics | null>(null);
 
   async function load(seedFeed = false) {
-    const [a, txns, subs] = await Promise.all([
+    const [a, txns, subs, co] = await Promise.all([
       api.get<AnalyticsData>("/v1/analytics"),
       api.get<Transaction[]>("/v1/transactions"),
       api.get<Subscription[]>("/v1/subscriptions"),
+      api.get<CheckoutAnalytics>("/v1/analytics/checkout").catch(() => null),
     ]);
     setData(a);
+    setCheckout(co);
     const allTxns = txns ?? [];
     setRecent(allTxns.slice(0, 8));
     // Seed the live feed with a mix of recent real events (payments + sub
@@ -221,6 +226,41 @@ export default function Analytics() {
   const yesterdayTotal = (data?.yesterday_hourly ?? []).reduce((a, b) => a + b.value, 0);
   const nowLabel = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
+  // Mouse-wheel zoom for the Today chart (X axis = hours, 0..24).
+  const todayChartRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState<[number, number]>([0, 24]);
+  const zoomTicks = (() => {
+    const [min, max] = zoom;
+    const span = max - min;
+    const step = span <= 4 ? 1 : span <= 8 ? 2 : span <= 14 ? 3 : 6;
+    const ticks: number[] = [];
+    for (let h = Math.ceil(min); h <= Math.floor(max); h += step) ticks.push(h);
+    return ticks;
+  })();
+  useEffect(() => {
+    const el = todayChartRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      setZoom(([min, max]) => {
+        const span = max - min;
+        const cursor = min + frac * span;
+        const factor = e.deltaY > 0 ? 1.2 : 1 / 1.2; // out : in
+        const newSpan = Math.min(24, Math.max(2, span * factor));
+        let newMin = cursor - (cursor - min) * (newSpan / span);
+        let newMax = newMin + newSpan;
+        if (newMin < 0) [newMin, newMax] = [0, newSpan];
+        if (newMax > 24) [newMin, newMax] = [24 - newSpan, 24];
+        return [newMin, newMax];
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+  const zoomed = zoom[0] > 0 || zoom[1] < 24;
+
   return (
     <div>
       <div className="page-head">
@@ -274,7 +314,12 @@ export default function Analytics() {
 
       {data && (
         <div className="panel today-panel">
-          <h3 style={{ marginBottom: 16 }}>Today</h3>
+          <div className="panel-head">
+            <h3 style={{ margin: 0 }}>Today</h3>
+            <span className="zoom-hint">
+              {zoomed ? "double-click to reset" : "scroll to zoom"}
+            </span>
+          </div>
           <div className="today-legend">
             <div className="today-metric">
               <span className="today-label">Gross volume</span>
@@ -286,18 +331,25 @@ export default function Analytics() {
               <span className="today-amount">{formatMoney(yesterdayTotal, currency)}</span>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={intraday} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2a2f3a" vertical={false} />
-              <XAxis
-                dataKey="hour"
-                type="number"
-                domain={[0, 24]}
-                ticks={[0, 6, 12, 18, 24]}
-                tickFormatter={hourLabel}
-                stroke="#9aa3b2"
-                fontSize={11}
-              />
+          <div
+            ref={todayChartRef}
+            className="zoomable"
+            onDoubleClick={() => setZoom([0, 24])}
+            title="Scroll to zoom · double-click to reset"
+          >
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={intraday} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2a2f3a" vertical={false} />
+                <XAxis
+                  dataKey="hour"
+                  type="number"
+                  domain={zoom}
+                  ticks={zoomTicks}
+                  tickFormatter={hourLabel}
+                  allowDataOverflow
+                  stroke="#9aa3b2"
+                  fontSize={11}
+                />
               <YAxis stroke="#9aa3b2" fontSize={11} tickFormatter={(v) => `$${Math.round(v / 100)}`} />
               <Tooltip
                 contentStyle={{ background: "#171a21", border: "1px solid #2a2f3a", borderRadius: 8 }}
@@ -325,6 +377,7 @@ export default function Analytics() {
               />
             </LineChart>
           </ResponsiveContainer>
+          </div>
         </div>
       )}
 
@@ -418,6 +471,77 @@ export default function Analytics() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {checkout && (
+        <div className="chart-row">
+          <div className="panel" style={{ flex: 2 }}>
+            <div className="panel-head">
+              <h3 style={{ margin: 0 }}>Hosted checkout — visits (last 30 days)</h3>
+              <div className="checkout-kpis">
+                <span>
+                  <strong>{checkout.total_visits}</strong> visitors
+                </span>
+                <span>
+                  <strong>
+                    {checkout.total_visits > 0
+                      ? Math.round((checkout.completed / checkout.total_visits) * 100)
+                      : 0}
+                    %
+                  </strong>{" "}
+                  conversion
+                </span>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart
+                data={checkout.visits_by_day}
+                margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="visits" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#4aa3ff" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#4aa3ff" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2a2f3a" vertical={false} />
+                <XAxis dataKey="day" tickFormatter={fmtDay} stroke="#9aa3b2" fontSize={11} />
+                <YAxis stroke="#9aa3b2" fontSize={11} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: "#171a21", border: "1px solid #2a2f3a", borderRadius: 8 }}
+                  formatter={(v) => [v, "Visits"]}
+                />
+                <Area type="monotone" dataKey="value" stroke="#4aa3ff" strokeWidth={2} fill="url(#visits)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="panel" style={{ flex: 1 }}>
+            <h3>Visitors by country</h3>
+            {checkout.by_country.length === 0 ? (
+              <div className="empty">No visits yet.</div>
+            ) : (
+              <div className="country-list">
+                {checkout.by_country.map((c) => {
+                  const pct = Math.round((c.count / checkout.total_visits) * 100);
+                  return (
+                    <div key={c.country} className="country-row">
+                      <div className="country-name">
+                        {c.country === "Unknown" ? "Unknown" : countryName(c.country)}
+                      </div>
+                      <div className="country-bar">
+                        <div className="country-bar-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="country-count">
+                        {c.count} · {pct}%
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

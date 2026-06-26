@@ -7,10 +7,90 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const checkoutVisitsByCountry = `-- name: CheckoutVisitsByCountry :many
+SELECT COALESCE(NULLIF(country, ''), 'Unknown') AS country,
+       COUNT(*)::bigint AS count
+FROM checkout_visits
+WHERE merchant_id = $1 AND mode = $2 AND created_at >= now() - interval '30 days'
+GROUP BY 1
+ORDER BY count DESC
+LIMIT 10
+`
+
+type CheckoutVisitsByCountryParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+type CheckoutVisitsByCountryRow struct {
+	Country interface{} `json:"country"`
+	Count   int64       `json:"count"`
+}
+
+func (q *Queries) CheckoutVisitsByCountry(ctx context.Context, arg CheckoutVisitsByCountryParams) ([]CheckoutVisitsByCountryRow, error) {
+	rows, err := q.db.Query(ctx, checkoutVisitsByCountry, arg.MerchantID, arg.Mode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CheckoutVisitsByCountryRow{}
+	for rows.Next() {
+		var i CheckoutVisitsByCountryRow
+		if err := rows.Scan(&i.Country, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const checkoutVisitsByDay = `-- name: CheckoutVisitsByDay :many
+SELECT (date_trunc('day', created_at))::date AS day,
+       COUNT(*)::bigint AS count
+FROM checkout_visits
+WHERE merchant_id = $1 AND mode = $2 AND created_at >= now() - interval '30 days'
+GROUP BY 1
+ORDER BY 1
+`
+
+type CheckoutVisitsByDayParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+type CheckoutVisitsByDayRow struct {
+	Day   pgtype.Date `json:"day"`
+	Count int64       `json:"count"`
+}
+
+func (q *Queries) CheckoutVisitsByDay(ctx context.Context, arg CheckoutVisitsByDayParams) ([]CheckoutVisitsByDayRow, error) {
+	rows, err := q.db.Query(ctx, checkoutVisitsByDay, arg.MerchantID, arg.Mode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CheckoutVisitsByDayRow{}
+	for rows.Next() {
+		var i CheckoutVisitsByDayRow
+		if err := rows.Scan(&i.Day, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 const completeCheckoutSession = `-- name: CompleteCheckoutSession :one
 UPDATE checkout_sessions
@@ -48,6 +128,43 @@ func (q *Queries) CompleteCheckoutSession(ctx context.Context, arg CompleteCheck
 		&i.Mode,
 	)
 	return i, err
+}
+
+const countCheckoutVisits = `-- name: CountCheckoutVisits :one
+SELECT COUNT(*)::bigint AS count
+FROM checkout_visits
+WHERE merchant_id = $1 AND mode = $2 AND created_at >= now() - interval '30 days'
+`
+
+type CountCheckoutVisitsParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+func (q *Queries) CountCheckoutVisits(ctx context.Context, arg CountCheckoutVisitsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCheckoutVisits, arg.MerchantID, arg.Mode)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countCompletedCheckouts = `-- name: CountCompletedCheckouts :one
+SELECT COUNT(*)::bigint AS count
+FROM checkout_sessions
+WHERE merchant_id = $1 AND mode = $2 AND status = 'completed'
+  AND created_at >= now() - interval '30 days'
+`
+
+type CountCompletedCheckoutsParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Mode       string    `json:"mode"`
+}
+
+func (q *Queries) CountCompletedCheckouts(ctx context.Context, arg CountCompletedCheckoutsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCompletedCheckouts, arg.MerchantID, arg.Mode)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const createCheckoutSession = `-- name: CreateCheckoutSession :one
@@ -179,4 +296,55 @@ func (q *Queries) GetCheckoutSessionDetails(ctx context.Context, id uuid.UUID) (
 		&i.ProductName,
 	)
 	return i, err
+}
+
+const insertCheckoutVisit = `-- name: InsertCheckoutVisit :exec
+
+INSERT INTO checkout_visits (merchant_id, mode, session_id, country, created_at)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertCheckoutVisitParams struct {
+	MerchantID uuid.UUID          `json:"merchant_id"`
+	Mode       string             `json:"mode"`
+	SessionID  pgtype.UUID        `json:"session_id"`
+	Country    string             `json:"country"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+// ── Hosted checkout visit analytics ────────────────────────────────
+func (q *Queries) InsertCheckoutVisit(ctx context.Context, arg InsertCheckoutVisitParams) error {
+	_, err := q.db.Exec(ctx, insertCheckoutVisit,
+		arg.MerchantID,
+		arg.Mode,
+		arg.SessionID,
+		arg.Country,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const seedCheckoutSession = `-- name: SeedCheckoutSession :exec
+INSERT INTO checkout_sessions (merchant_id, mode, price_id, quantity, status, success_url, expires_at, completed_at, created_at)
+VALUES ($1, $2, $3, 1, 'completed', 'https://example.com/success', $4, $5, $5)
+`
+
+type SeedCheckoutSessionParams struct {
+	MerchantID  uuid.UUID          `json:"merchant_id"`
+	Mode        string             `json:"mode"`
+	PriceID     uuid.UUID          `json:"price_id"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	CompletedAt *time.Time         `json:"completed_at"`
+}
+
+// A backdated completed checkout session (dev seeder, for conversion stats).
+func (q *Queries) SeedCheckoutSession(ctx context.Context, arg SeedCheckoutSessionParams) error {
+	_, err := q.db.Exec(ctx, seedCheckoutSession,
+		arg.MerchantID,
+		arg.Mode,
+		arg.PriceID,
+		arg.ExpiresAt,
+		arg.CompletedAt,
+	)
+	return err
 }

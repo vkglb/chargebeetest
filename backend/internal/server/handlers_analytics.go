@@ -12,6 +12,36 @@ type pointInt struct {
 	Value int64  `json:"value"`
 }
 
+// handleCheckoutAnalytics returns hosted-checkout visit analytics: traffic over
+// time, total visitors, country breakdown and conversion vs completed sessions.
+func (s *Server) handleCheckoutAnalytics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	mid := merchantID(r)
+	md := mode(r)
+
+	visits, _ := s.q.CountCheckoutVisits(ctx, sqlc.CountCheckoutVisitsParams{MerchantID: mid, Mode: md})
+	completed, _ := s.q.CountCompletedCheckouts(ctx, sqlc.CountCompletedCheckoutsParams{MerchantID: mid, Mode: md})
+
+	dayRows, _ := s.q.CheckoutVisitsByDay(ctx, sqlc.CheckoutVisitsByDayParams{MerchantID: mid, Mode: md})
+	byDay := make([]pointInt, 0, len(dayRows))
+	for _, row := range dayRows {
+		byDay = append(byDay, pointInt{Day: dateStr(row.Day), Value: row.Count})
+	}
+
+	countryRows, _ := s.q.CheckoutVisitsByCountry(ctx, sqlc.CheckoutVisitsByCountryParams{MerchantID: mid, Mode: md})
+	byCountry := make([]map[string]any, 0, len(countryRows))
+	for _, row := range countryRows {
+		byCountry = append(byCountry, map[string]any{"country": row.Country, "count": row.Count})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"total_visits":  visits,
+		"completed":     completed,
+		"visits_by_day": byDay,
+		"by_country":    byCountry,
+	})
+}
+
 // metricDelta carries a value and its prior-period counterpart so the UI can
 // render a +/- percentage with an up/down arrow.
 type metricDelta struct {

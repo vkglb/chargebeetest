@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -10,6 +11,17 @@ import (
 	"github.com/chargeebee/platform/internal/billing"
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 )
+
+// checkoutCountry derives the visitor country (ISO-2) from common CDN/proxy geo
+// headers, if present. Empty when unknown (e.g. no geo header on the host).
+func checkoutCountry(r *http.Request) string {
+	for _, h := range []string{"Cf-Ipcountry", "X-Vercel-Ip-Country", "X-Country"} {
+		if v := r.Header.Get(h); v != "" && v != "XX" {
+			return strings.ToUpper(v)
+		}
+	}
+	return ""
+}
 
 type createCheckoutRequest struct {
 	PriceID       string `json:"price_id"`
@@ -88,6 +100,14 @@ func (s *Server) handleGetCheckoutSession(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		writeError(w, http.StatusNotFound, "checkout session not found")
 		return
+	}
+
+	// Record the page visit for hosted-checkout analytics (best-effort).
+	if sess, err := s.q.GetCheckoutSession(r.Context(), id); err == nil {
+		_ = s.q.InsertCheckoutVisit(r.Context(), sqlc.InsertCheckoutVisitParams{
+			MerchantID: sess.MerchantID, Mode: sess.Mode, SessionID: pgUUID(id),
+			Country: checkoutCountry(r), CreatedAt: pgTimestamptz(time.Now().UTC()),
+		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":             d.ID,

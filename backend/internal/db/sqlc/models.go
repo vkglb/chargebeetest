@@ -50,6 +50,15 @@ type CheckoutSession struct {
 	Mode           string             `json:"mode"`
 }
 
+type CheckoutVisit struct {
+	ID         uuid.UUID          `json:"id"`
+	MerchantID uuid.UUID          `json:"merchant_id"`
+	Mode       string             `json:"mode"`
+	SessionID  pgtype.UUID        `json:"session_id"`
+	Country    string             `json:"country"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Coupon struct {
 	ID             uuid.UUID          `json:"id"`
 	MerchantID     uuid.UUID          `json:"merchant_id"`

@@ -16,9 +16,13 @@ type Querier interface {
 	AnalyticsMRR(ctx context.Context, arg AnalyticsMRRParams) (int64, error)
 	// Cancel a subscription with a reason and stop future billing.
 	CancelSubscription(ctx context.Context, arg CancelSubscriptionParams) (Subscription, error)
+	CheckoutVisitsByCountry(ctx context.Context, arg CheckoutVisitsByCountryParams) ([]CheckoutVisitsByCountryRow, error)
+	CheckoutVisitsByDay(ctx context.Context, arg CheckoutVisitsByDayParams) ([]CheckoutVisitsByDayRow, error)
 	CompleteCheckoutSession(ctx context.Context, arg CompleteCheckoutSessionParams) (CheckoutSession, error)
 	// Active/trialing subscriptions that existed at a point in time.
 	CountActiveSubscriptionsAsOf(ctx context.Context, arg CountActiveSubscriptionsAsOfParams) (int64, error)
+	CountCheckoutVisits(ctx context.Context, arg CountCheckoutVisitsParams) (int64, error)
+	CountCompletedCheckouts(ctx context.Context, arg CountCompletedCheckoutsParams) (int64, error)
 	CountCustomers(ctx context.Context, arg CountCustomersParams) (int64, error)
 	// Total customers that existed at a point in time (a stock metric).
 	CountCustomersAsOf(ctx context.Context, arg CountCustomersAsOfParams) (int64, error)
@@ -68,6 +72,8 @@ type Querier interface {
 	GetWebhookEndpoint(ctx context.Context, arg GetWebhookEndpointParams) (WebhookEndpoint, error)
 	// Record the outcome of a billing pass for the run-history chart.
 	InsertBillingRun(ctx context.Context, arg InsertBillingRunParams) (BillingRun, error)
+	// ── Hosted checkout visit analytics ────────────────────────────────
+	InsertCheckoutVisit(ctx context.Context, arg InsertCheckoutVisitParams) error
 	ListAPIKeysByMerchant(ctx context.Context, merchantID uuid.UUID) ([]ListAPIKeysByMerchantRow, error)
 	// Recent billing passes for a merchant + mode (newest first).
 	ListBillingRuns(ctx context.Context, arg ListBillingRunsParams) ([]BillingRun, error)
@@ -106,6 +112,8 @@ type Querier interface {
 	// intraday "today vs yesterday" gross-volume chart.
 	RevenueByHourBetween(ctx context.Context, arg RevenueByHourBetweenParams) ([]RevenueByHourBetweenRow, error)
 	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error
+	// A backdated completed checkout session (dev seeder, for conversion stats).
+	SeedCheckoutSession(ctx context.Context, arg SeedCheckoutSessionParams) error
 	// Insert a customer with a backdated created_at (used by the dev seeder so the
 	// customers-by-day series has a realistic spread).
 	SeedCustomer(ctx context.Context, arg SeedCustomerParams) (Customer, error)
