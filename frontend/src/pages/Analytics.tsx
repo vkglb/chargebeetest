@@ -443,6 +443,20 @@ export default function Analytics() {
           ) : (
             <div className="empty">No subscriptions yet.</div>
           )}
+          {data && data.status_breakdown.length > 0 && (
+            <div className="status-legend">
+              {data.status_breakdown.map((s) => (
+                <div key={s.status} className="legend-item">
+                  <span
+                    className="legend-dot"
+                    style={{ background: STATUS_COLORS[s.status] ?? "#9aa3b2" }}
+                  />
+                  <span className="legend-label">{s.status.replace("_", " ")}</span>
+                  <span className="legend-count">{s.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

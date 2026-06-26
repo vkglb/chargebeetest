@@ -482,6 +482,19 @@ td .delta { margin-top: 0; }
 .country-bar { background: var(--panel-2); border-radius: 99px; height: 8px; overflow: hidden; }
 .country-bar-fill { height: 100%; background: #4aa3ff; border-radius: 99px; }
 .country-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+/* Donut legend */
+.status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 14px;
+  justify-content: center;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+.legend-label { color: var(--muted); text-transform: capitalize; }
+.legend-count { color: var(--text); font-weight: 600; }
 .zoomable { cursor: ew-resize; }
 .zoomable * { user-select: none; }
 
