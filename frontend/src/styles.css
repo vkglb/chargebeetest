@@ -397,17 +397,22 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
   border-radius: 9px;
   font-size: 13px;
   margin-bottom: 22px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 .mode-banner strong { font-weight: 650; letter-spacing: 0.01em; }
 .mode-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
 .mode-banner.test {
-  background: rgba(241,196,15,0.10);
+  /* Opaque base under the tint so scrolling content doesn't show through. */
+  background: linear-gradient(rgba(241,196,15,0.10), rgba(241,196,15,0.10)), var(--bg);
   border: 1px solid rgba(241,196,15,0.30);
   color: var(--amber);
 }
 .mode-banner.test .mode-dot { background: var(--amber); }
 .mode-banner.live {
-  background: rgba(46,204,113,0.10);
+  background: linear-gradient(rgba(46,204,113,0.10), rgba(46,204,113,0.10)), var(--bg);
   border: 1px solid rgba(46,204,113,0.30);
   color: var(--green);
 }
