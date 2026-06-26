@@ -66,6 +66,13 @@ INSERT INTO dunning_attempts (merchant_id, mode, invoice_id, attempt_no, schedul
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
+-- name: CountDunningAttempts :one
+-- How many dunning retries have already been recorded for a subscription.
+SELECT COUNT(*)::bigint AS count
+FROM dunning_attempts da
+JOIN invoices i ON i.id = da.invoice_id
+WHERE i.subscription_id = $1;
+
 -- name: ListInvoicesByMerchant :many
 SELECT * FROM invoices
 WHERE merchant_id = $1 AND mode = $2

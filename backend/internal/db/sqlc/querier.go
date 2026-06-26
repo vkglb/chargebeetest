@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -21,6 +22,8 @@ type Querier interface {
 	CountCustomers(ctx context.Context, arg CountCustomersParams) (int64, error)
 	// Total customers that existed at a point in time (a stock metric).
 	CountCustomersAsOf(ctx context.Context, arg CountCustomersAsOfParams) (int64, error)
+	// How many dunning retries have already been recorded for a subscription.
+	CountDunningAttempts(ctx context.Context, subscriptionID pgtype.UUID) (int64, error)
 	CountMerchantsBySubdomain(ctx context.Context, subdomain string) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateCheckoutSession(ctx context.Context, arg CreateCheckoutSessionParams) (CheckoutSession, error)
@@ -104,6 +107,9 @@ type Querier interface {
 	// Archive (disable) or re-activate a coupon, recording when/why on archive.
 	SetCouponStatus(ctx context.Context, arg SetCouponStatusParams) (Coupon, error)
 	SetCustomerGatewayRef(ctx context.Context, arg SetCustomerGatewayRefParams) (Customer, error)
+	// Keep a subscription past_due but push its next billing to the dunning retry
+	// time, so the scheduler waits instead of re-charging every tick.
+	SetSubscriptionRetry(ctx context.Context, arg SetSubscriptionRetryParams) (Subscription, error)
 	SetSubscriptionStatus(ctx context.Context, arg SetSubscriptionStatusParams) (Subscription, error)
 	SubscriptionStatusBreakdown(ctx context.Context, arg SubscriptionStatusBreakdownParams) ([]SubscriptionStatusBreakdownRow, error)
 	SubscriptionsByDay(ctx context.Context, arg SubscriptionsByDayParams) ([]SubscriptionsByDayRow, error)

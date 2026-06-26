@@ -41,6 +41,14 @@ UPDATE subscriptions
 SET next_billing_at = now(), updated_at = now()
 WHERE merchant_id = $1 AND mode = $2 AND status IN ('active', 'past_due');
 
+-- name: SetSubscriptionRetry :one
+-- Keep a subscription past_due but push its next billing to the dunning retry
+-- time, so the scheduler waits instead of re-charging every tick.
+UPDATE subscriptions
+SET status = 'past_due', next_billing_at = $2, updated_at = now()
+WHERE id = $1 AND merchant_id = $3
+RETURNING *;
+
 -- name: InsertBillingRun :one
 -- Record the outcome of a billing pass for the run-history chart.
 INSERT INTO billing_runs (merchant_id, mode, source, processed, succeeded, failed)

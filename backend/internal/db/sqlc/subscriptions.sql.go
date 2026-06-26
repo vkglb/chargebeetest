@@ -452,6 +452,45 @@ func (q *Queries) MarkSubscriptionsDueNow(ctx context.Context, arg MarkSubscript
 	return result.RowsAffected(), nil
 }
 
+const setSubscriptionRetry = `-- name: SetSubscriptionRetry :one
+UPDATE subscriptions
+SET status = 'past_due', next_billing_at = $2, updated_at = now()
+WHERE id = $1 AND merchant_id = $3
+RETURNING id, merchant_id, customer_id, price_id, payment_method_id, status, quantity, current_period_start, current_period_end, next_billing_at, cancel_at_period_end, cancelled_at, created_at, updated_at, mode, cancel_reason
+`
+
+type SetSubscriptionRetryParams struct {
+	ID            uuid.UUID  `json:"id"`
+	NextBillingAt *time.Time `json:"next_billing_at"`
+	MerchantID    uuid.UUID  `json:"merchant_id"`
+}
+
+// Keep a subscription past_due but push its next billing to the dunning retry
+// time, so the scheduler waits instead of re-charging every tick.
+func (q *Queries) SetSubscriptionRetry(ctx context.Context, arg SetSubscriptionRetryParams) (Subscription, error) {
+	row := q.db.QueryRow(ctx, setSubscriptionRetry, arg.ID, arg.NextBillingAt, arg.MerchantID)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.CustomerID,
+		&i.PriceID,
+		&i.PaymentMethodID,
+		&i.Status,
+		&i.Quantity,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.NextBillingAt,
+		&i.CancelAtPeriodEnd,
+		&i.CancelledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mode,
+		&i.CancelReason,
+	)
+	return i, err
+}
+
 const setSubscriptionStatus = `-- name: SetSubscriptionStatus :one
 UPDATE subscriptions
 SET status = $2, updated_at = now()

@@ -233,32 +233,60 @@ func (e *Engine) onChargeSucceeded(ctx context.Context, sub sqlc.Subscription, i
 	return nil
 }
 
-func (e *Engine) onChargeFailed(ctx context.Context, sub sqlc.Subscription, invoiceID uuid.UUID, firstFailure time.Time) error {
-	if _, err := e.q.SetSubscriptionStatus(ctx, sqlc.SetSubscriptionStatusParams{
-		ID:         sub.ID,
-		Status:     "past_due",
-		MerchantID: sub.MerchantID,
-	}); err != nil {
-		return fmt.Errorf("set past_due: %w", err)
+func (e *Engine) onChargeFailed(ctx context.Context, sub sqlc.Subscription, invoiceID uuid.UUID, now time.Time) error {
+	// Which retry are we on? Count attempts already recorded for this sub.
+	prior, _ := e.q.CountDunningAttempts(ctx, pgUUID(sub.ID))
+	attemptNo := int(prior) + 1
+	schedule := DefaultRetrySchedule
+
+	if attemptNo > len(schedule) {
+		// Dunning exhausted — stop billing; the merchant must intervene. Marking
+		// unpaid removes it from the due-list so it isn't retried again.
+		if _, err := e.q.SetSubscriptionStatus(ctx, sqlc.SetSubscriptionStatusParams{
+			ID:         sub.ID,
+			Status:     "unpaid",
+			MerchantID: sub.MerchantID,
+		}); err != nil {
+			return fmt.Errorf("set unpaid: %w", err)
+		}
+		e.logger.Warn("billing: dunning exhausted, marked unpaid",
+			"subscription_id", sub.ID, "merchant_id", sub.MerchantID, "attempts", int(prior))
+		e.emit.Emit(sub.MerchantID, sub.Mode, "subscription.dunning_exhausted", map[string]any{
+			"subscription_id": sub.ID, "attempts": int(prior),
+		})
+		return nil
 	}
 
-	// Schedule the first dunning retry.
-	when, ok := NextDunningTime(firstFailure, 1, DefaultRetrySchedule)
-	if ok {
-		if _, err := e.q.CreateDunningAttempt(ctx, sqlc.CreateDunningAttemptParams{
-			MerchantID:  sub.MerchantID,
-			Mode:        sub.Mode,
-			InvoiceID:   invoiceID,
-			AttemptNo:   1,
-			ScheduledAt: pgTimestamptz(when),
-			AttemptedAt: nil,
-			Result:      pgText("scheduled"),
-		}); err != nil {
-			return fmt.Errorf("create dunning attempt: %w", err)
-		}
+	// Schedule the next retry per the cumulative schedule (e.g. days 1, 3, 5),
+	// using the incremental gap so retries land relative to each failure.
+	prevDay := 0
+	if attemptNo > 1 {
+		prevDay = schedule[attemptNo-2]
 	}
-	e.logger.Warn("billing: charge failed, entered dunning",
-		"subscription_id", sub.ID, "merchant_id", sub.MerchantID, "next_retry", when)
+	retryAt := now.AddDate(0, 0, schedule[attemptNo-1]-prevDay)
+
+	// Keep it past_due but push next_billing_at out so the scheduler waits for
+	// the retry time instead of re-charging on every tick.
+	if _, err := e.q.SetSubscriptionRetry(ctx, sqlc.SetSubscriptionRetryParams{
+		ID:            sub.ID,
+		NextBillingAt: timePtr(retryAt),
+		MerchantID:    sub.MerchantID,
+	}); err != nil {
+		return fmt.Errorf("schedule retry: %w", err)
+	}
+	if _, err := e.q.CreateDunningAttempt(ctx, sqlc.CreateDunningAttemptParams{
+		MerchantID:  sub.MerchantID,
+		Mode:        sub.Mode,
+		InvoiceID:   invoiceID,
+		AttemptNo:   int32(attemptNo),
+		ScheduledAt: pgTimestamptz(retryAt),
+		AttemptedAt: nil,
+		Result:      pgText("scheduled"),
+	}); err != nil {
+		return fmt.Errorf("create dunning attempt: %w", err)
+	}
+	e.logger.Warn("billing: charge failed, retry scheduled",
+		"subscription_id", sub.ID, "merchant_id", sub.MerchantID, "attempt", attemptNo, "next_retry", retryAt)
 	return nil
 }
 

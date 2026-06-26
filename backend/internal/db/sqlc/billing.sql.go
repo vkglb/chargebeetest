@@ -13,6 +13,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countDunningAttempts = `-- name: CountDunningAttempts :one
+SELECT COUNT(*)::bigint AS count
+FROM dunning_attempts da
+JOIN invoices i ON i.id = da.invoice_id
+WHERE i.subscription_id = $1
+`
+
+// How many dunning retries have already been recorded for a subscription.
+func (q *Queries) CountDunningAttempts(ctx context.Context, subscriptionID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countDunningAttempts, subscriptionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createDunningAttempt = `-- name: CreateDunningAttempt :one
 INSERT INTO dunning_attempts (merchant_id, mode, invoice_id, attempt_no, scheduled_at, attempted_at, result)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
