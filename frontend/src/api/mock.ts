@@ -480,6 +480,10 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
     case "GET /v1/billing-runs":
       return db.billingRuns as T;
 
+    case "POST /v1/dev/emit-test":
+      // No WebSocket in demo mode, so this just acknowledges.
+      return { status: "emitted" } as T;
+
     case "GET /v1/products":
       return db.products as T;
     case "POST /v1/products": {

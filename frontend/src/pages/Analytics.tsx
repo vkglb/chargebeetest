@@ -73,6 +73,8 @@ function describeEvent(e: LiveEvent): { label: string; detail: string; cls: stri
       return { label: "Marked unpaid", detail: String(d.reason || ""), cls: "unpaid" };
     case "subscription.cancelled":
       return { label: "Subscription cancelled", detail: d.reason ? String(d.reason) : "", cls: "cancelled" };
+    case "test.ping":
+      return { label: "Test event", detail: String(d.message || ""), cls: "trialing" };
     default:
       return { label: e.type, detail: "", cls: "open" };
   }
@@ -134,6 +136,14 @@ export default function Analytics() {
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, []);
+
+  async function sendTestEvent() {
+    try {
+      await api.post("/v1/dev/emit-test");
+    } catch {
+      /* ignore */
+    }
+  }
 
   // Live: prepend incoming events to the feed and refresh the charts.
   useRealtime((e) => {
@@ -385,13 +395,19 @@ export default function Analytics() {
         <div className="panel" style={{ flex: 1 }}>
           <div className="panel-head">
             <h3>Live activity</h3>
-            <span className={live ? "live-pill on" : "live-pill"}>
-              <span className="live-dot" /> {live ? "Live" : "Realtime"}
-            </span>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <button className="link-btn" onClick={sendTestEvent}>
+                Send test event
+              </button>
+              <span className={live ? "live-pill on" : "live-pill"}>
+                <span className="live-dot" /> {live ? "Live" : "Realtime"}
+              </span>
+            </div>
           </div>
           {feed.length === 0 ? (
             <div className="empty">
-              Waiting for events… create a subscription to see it appear here in real time.
+              Waiting for events… click “Send test event”, or run a billing cycle, to see it
+              stream here in real time.
             </div>
           ) : (
             <table>

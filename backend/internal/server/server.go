@@ -118,6 +118,7 @@ func (s *Server) routes() {
 			r.Get("/analytics", s.handleAnalytics)
 			r.Post("/dev/seed", s.handleSeed)
 			r.Post("/dev/bill-now", s.handleBillNow)
+			r.Post("/dev/emit-test", s.handleEmitTest)
 			r.Get("/billing-runs", s.handleListBillingRuns)
 
 			r.Post("/products", s.handleCreateProduct)
