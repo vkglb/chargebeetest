@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api, type Invoice, type Customer } from "../api/client";
 import { formatMoney, formatDate } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
@@ -9,6 +9,7 @@ import Pagination from "../components/Pagination";
 const PAGE_SIZE = 20;
 
 export default function Invoices() {
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [error, setError] = useState("");
@@ -83,11 +84,13 @@ export default function Invoices() {
             </thead>
             <tbody>
               {paged.map((i) => (
-                <tr key={i.id}>
+                <tr 
+                  key={i.id}
+                  onClick={() => navigate(`/invoices/${i.id}`)}
+                  style={{ cursor: "pointer" }}
+                >
                   <td className="mono">
-                    <Link to={`/invoices/${i.id}`} className="row-link">
-                      {i.id.slice(0, 8)}…
-                    </Link>
+                    {i.id.slice(0, 8)}…
                   </td>
                   <td>{customerEmail(i.customer_id)}</td>
                   <td>{formatMoney(i.total_minor, i.currency)}</td>

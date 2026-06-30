@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api, type Customer } from "../api/client";
 import { formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
@@ -10,6 +10,7 @@ import { COUNTRIES, countryName } from "../lib/countries";
 const PAGE_SIZE = 20;
 
 export default function Customers() {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -139,12 +140,12 @@ export default function Customers() {
             </thead>
             <tbody>
               {paged.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <Link to={`/customers/${c.id}`} className="row-link">
-                      {c.email}
-                    </Link>
-                  </td>
+                <tr 
+                  key={c.id}
+                  onClick={() => navigate(`/customers/${c.id}`)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <td>{c.email}</td>
                   <td>{c.name || "—"}</td>
                   <td>{countryName(c.country)}</td>
                   <td className="mono">{c.gateway_customer_ref || "—"}</td>
