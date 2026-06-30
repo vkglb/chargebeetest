@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ResponsiveContainer,
   BarChart,
@@ -27,6 +28,7 @@ const PAGE_SIZE = 20;
 import { CANCEL_REASONS } from "../lib/subscriptions";
 
 export default function Subscriptions() {
+  const navigate = useNavigate();
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
@@ -280,7 +282,15 @@ export default function Subscriptions() {
               {paged.map((s) => {
                 const cancellable = ["active", "trialing", "past_due"].includes(s.status);
                 return (
-                  <tr key={s.id}>
+                  <tr 
+                    key={s.id}
+                    onClick={(e) => {
+                      // Prevent navigation if they clicked an action button
+                      if ((e.target as HTMLElement).closest("button, select")) return;
+                      navigate(`/customers/${s.customer_id}`);
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>{customerEmail(s.customer_id)}</td>
                     <td>{priceLabel(s.price_id)}</td>
                     <td>

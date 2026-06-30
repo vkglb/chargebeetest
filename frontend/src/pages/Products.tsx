@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, type Product, type Price } from "../api/client";
 import { formatMoney } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
@@ -9,6 +10,7 @@ import HelpTip from "../components/HelpTip";
 const PAGE_SIZE = 20;
 
 export default function Products() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
   const [name, setName] = useState("");
@@ -251,7 +253,11 @@ export default function Products() {
             </thead>
             <tbody>
               {paged.map((p) => (
-                <tr key={p.id}>
+                <tr 
+                  key={p.id}
+                  onClick={() => navigate(`/products/${p.product_id}`)}
+                  style={{ cursor: "pointer" }}
+                >
                   <td>{productName(p.product_id)}</td>
                   <td>{p.nickname || "—"}</td>
                   <td>{formatMoney(p.amount_minor, p.currency)}</td>

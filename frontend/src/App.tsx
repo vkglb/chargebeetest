@@ -5,11 +5,13 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Overview from "./pages/Overview";
 import Products from "./pages/Products";
+import ProductDetail from "./pages/ProductDetail";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
 import Subscriptions from "./pages/Subscriptions";
 import Gateways from "./pages/Gateways";
 import Coupons from "./pages/Coupons";
+import CouponDetail from "./pages/CouponDetail";
 import Invoices from "./pages/Invoices";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import Transactions from "./pages/Transactions";
@@ -47,6 +49,7 @@ export default function App() {
       >
         <Route index element={<Overview />} />
         <Route path="/products" element={<Products />} />
+        <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/customers/:id" element={<CustomerDetail />} />
         <Route path="/subscriptions" element={<Subscriptions />} />
@@ -55,6 +58,7 @@ export default function App() {
         <Route path="/invoices/:id" element={<InvoiceDetail />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/coupons" element={<Coupons />} />
+        <Route path="/coupons/:id" element={<CouponDetail />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/gateways" element={<Gateways />} />
         <Route path="/webhooks" element={<Webhooks />} />

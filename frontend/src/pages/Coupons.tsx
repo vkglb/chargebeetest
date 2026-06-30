@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, type Coupon } from "../api/client";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
@@ -17,6 +18,7 @@ const reasonLabel = (r?: string) =>
   ARCHIVE_REASONS.find((x) => x.value === r)?.label ?? (r || "—");
 
 export default function Coupons() {
+  const navigate = useNavigate();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [code, setCode] = useState("");
   const [discountType, setDiscountType] = useState("percentage");
@@ -194,7 +196,17 @@ export default function Coupons() {
               {paged.map((c) => {
                 const archived = c.status === "archived";
                 return (
-                  <tr key={c.id} style={archived ? { opacity: 0.55 } : undefined}>
+                  <tr 
+                    key={c.id} 
+                    style={{
+                      ...(archived ? { opacity: 0.55 } : {}),
+                      cursor: "pointer"
+                    }}
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest("button, select")) return;
+                      navigate(`/coupons/${c.id}`);
+                    }}
+                  >
                     <td className="mono" style={{ color: "var(--text)" }}>{c.code}</td>
                     <td>{displayValue(c)}</td>
                     <td>{c.redemptions}</td>

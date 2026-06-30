@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, type Transaction } from "../api/client";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
@@ -8,6 +9,7 @@ import Pagination from "../components/Pagination";
 const PAGE_SIZE = 20;
 
 export default function Transactions() {
+  const navigate = useNavigate();
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -70,7 +72,13 @@ export default function Transactions() {
             </thead>
             <tbody>
               {paged.map((t) => (
-                <tr key={t.id}>
+                <tr 
+                  key={t.id}
+                  onClick={() => {
+                    if (t.invoice_id) navigate(`/invoices/${t.invoice_id}`);
+                  }}
+                  style={{ cursor: t.invoice_id ? "pointer" : "default" }}
+                >
                   <td className="mono">{t.gateway_txn_ref || "—"}</td>
                   <td>{formatMoney(t.amount_minor, t.currency)}</td>
                   <td>
