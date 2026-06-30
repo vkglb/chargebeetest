@@ -23,9 +23,10 @@ func (s *Server) handleListGateways(w http.ResponseWriter, r *http.Request) {
 }
 
 type connectGatewayRequest struct {
-	Provider   string `json:"provider"`    // "stripe"
-	AccountRef string `json:"account_ref"` // e.g. acct_xxx (optional)
-	SecretKey  string `json:"secret_key"`  // merchant's gateway secret / Connect token
+	Provider       string `json:"provider"`        // "stripe"
+	AccountRef     string `json:"account_ref"`     // e.g. acct_xxx (optional)
+	SecretKey      string `json:"secret_key"`      // merchant's gateway secret / Connect token
+	PublishableKey string `json:"publishable_key"` // client-side key (Stripe pk_*), optional
 }
 
 // handleConnectGateway stores (or updates) a merchant's gateway credentials.
@@ -53,6 +54,7 @@ func (s *Server) handleConnectGateway(w http.ResponseWriter, r *http.Request) {
 		Provider:             req.Provider,
 		AccountRef:           pgText(req.AccountRef),
 		EncryptedCredentials: []byte(req.SecretKey),
+		PublishableKey:       req.PublishableKey,
 	})
 	if err != nil {
 		s.logger.Error("connect gateway", "error", err)

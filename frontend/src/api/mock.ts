@@ -734,6 +734,11 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
           cancel_url: sess.cancel_url,
         } as T;
       }
+      // Guest/demo mode never has a real gateway — always simulate vaulting.
+      if (method === "POST" && /\/v1\/checkout\/sessions\/[^/]+\/setup-intent$/.test(path)) {
+        return { simulated: true } as T;
+      }
+
       if (method === "POST" && path.endsWith("/complete")) {
         const id = path.split("/")[4];
         const sess = db.checkoutSessions.find((c) => c.id === id);

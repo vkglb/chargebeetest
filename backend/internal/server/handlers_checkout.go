@@ -10,6 +10,7 @@ import (
 
 	"github.com/chargeebee/platform/internal/billing"
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
+	"github.com/chargeebee/platform/internal/gateway"
 )
 
 // checkoutCountry derives the visitor country (ISO-2) from common CDN/proxy geo
@@ -126,10 +127,77 @@ func (s *Server) handleGetCheckoutSession(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// handleCheckoutSetupIntent bootstraps real card vaulting for the hosted page.
+// If the session's merchant has a card-vaulting gateway connected (Stripe), it
+// creates a gateway customer + an off-session SetupIntent and returns the
+// publishable key + client secret the browser confirms the card against. When
+// no such gateway is connected it reports simulated=true so the page falls back
+// to the demo capture flow.
+func (s *Server) handleCheckoutSetupIntent(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	session, err := s.q.GetCheckoutSession(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "checkout session not found")
+		return
+	}
+
+	acct, err := s.q.GetGatewayAccount(r.Context(), sqlc.GetGatewayAccountParams{
+		MerchantID: session.MerchantID,
+		Mode:       session.Mode,
+		Provider:   "stripe",
+	})
+	if err != nil || acct.PublishableKey == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"simulated": true})
+		return
+	}
+	gw, err := s.gateways.Get(acct.Provider)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"simulated": true})
+		return
+	}
+	vaulter, ok := gw.(gateway.CardVaulting)
+	if !ok {
+		writeJSON(w, http.StatusOK, map[string]any{"simulated": true})
+		return
+	}
+
+	creds := gateway.Credentials{
+		Provider:   acct.Provider,
+		AccountRef: acct.AccountRef.String,
+		SecretKey:  string(acct.EncryptedCredentials),
+	}
+	custRef, err := gw.CreateCustomer(r.Context(), creds, gateway.CustomerParams{
+		Email: session.CustomerEmail.String,
+	})
+	if err != nil {
+		s.logger.Error("checkout setup intent: create customer", "error", err)
+		writeError(w, http.StatusBadGateway, "could not start payment setup")
+		return
+	}
+	clientSecret, err := vaulter.CreateSetupIntent(r.Context(), creds, custRef)
+	if err != nil {
+		s.logger.Error("checkout setup intent: create setup intent", "error", err)
+		writeError(w, http.StatusBadGateway, "could not start payment setup")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"simulated":            false,
+		"publishable_key":      acct.PublishableKey,
+		"client_secret":        clientSecret,
+		"gateway_customer_ref": custRef,
+	})
+}
+
 type completeCheckoutRequest struct {
-	Email           string `json:"email"`
-	Name            string `json:"name"`
-	PaymentMethodID string `json:"payment_method_ref"` // gateway pm token from client-side tokenization
+	Email              string `json:"email"`
+	Name               string `json:"name"`
+	PaymentMethodID    string `json:"payment_method_ref"`   // gateway pm token (pm_…) from client-side vaulting
+	GatewayCustomerRef string `json:"gateway_customer_ref"` // gateway customer (cus_…) the card was vaulted on
 }
 
 // handleCompleteCheckoutSession is called by the hosted page when the customer
@@ -164,13 +232,15 @@ func (s *Server) handleCompleteCheckoutSession(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Create (or reuse) the customer (in the session's mode).
+	// Create (or reuse) the customer (in the session's mode). When the card was
+	// vaulted via a real gateway, gateway_customer_ref is the gateway's customer
+	// id (cus_…) so off-session dunning charges resolve to the right account.
 	customer, err := s.q.CreateCustomer(ctx, sqlc.CreateCustomerParams{
 		MerchantID:         session.MerchantID,
 		Mode:               session.Mode,
 		Email:              req.Email,
 		Name:               pgText(req.Name),
-		GatewayCustomerRef: pgText(""),
+		GatewayCustomerRef: pgText(req.GatewayCustomerRef),
 	})
 	if err != nil {
 		writeError(w, http.StatusConflict, "could not create customer")

@@ -9,8 +9,9 @@ const CATALOG = [
     provider: "stripe",
     name: "Stripe",
     blurb: "Cards, wallets, SCA, Connect",
-    refLabel: "Account ref (acct_…)",
-    secretLabel: "Secret key (sk_live_…)",
+    refLabel: "Account ref (acct_… optional)",
+    secretLabel: "Secret key (sk_test_…)",
+    pubLabel: "Publishable key (pk_test_…)",
   },
   {
     provider: "razorpay",
@@ -42,6 +43,7 @@ export default function Gateways() {
   const [confirmDisconnect, setConfirmDisconnect] = useState<string | null>(null);
   const [accountRef, setAccountRef] = useState("");
   const [secretKey, setSecretKey] = useState("");
+  const [publishableKey, setPublishableKey] = useState("");
 
   async function load() {
     const res = await api.get<GatewayAccount[]>("/v1/gateways");
@@ -57,6 +59,7 @@ export default function Gateways() {
   function openForm(provider: string) {
     setAccountRef("");
     setSecretKey("");
+    setPublishableKey("");
     setConnecting(provider);
   }
 
@@ -67,10 +70,12 @@ export default function Gateways() {
         provider,
         account_ref: accountRef,
         secret_key: secretKey || "sk_demo_placeholder",
+        publishable_key: publishableKey,
       });
       setConnecting(null);
       setAccountRef("");
       setSecretKey("");
+      setPublishableKey("");
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -127,6 +132,19 @@ export default function Gateways() {
                     onChange={(e) => setSecretKey(e.target.value)}
                     placeholder={g.secretLabel}
                   />
+                  {"pubLabel" in g && g.pubLabel && (
+                    <>
+                      <label>{g.pubLabel}</label>
+                      <input
+                        value={publishableKey}
+                        onChange={(e) => setPublishableKey(e.target.value)}
+                        placeholder={g.pubLabel}
+                      />
+                      <div className="gateway-hint">
+                        Test keys only — real cards vault &amp; dunning runs through Stripe test mode.
+                      </div>
+                    </>
+                  )}
                   <div className="row" style={{ marginTop: 10 }}>
                     <button className="btn btn-sm" onClick={() => connect(g.provider)}>
                       {acct ? "Save keys" : "Save & connect"}

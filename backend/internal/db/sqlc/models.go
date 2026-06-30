@@ -116,6 +116,7 @@ type GatewayAccount struct {
 	Status               string             `json:"status"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	Mode                 string             `json:"mode"`
+	PublishableKey       string             `json:"publishable_key"`
 }
 
 type Invoice struct {

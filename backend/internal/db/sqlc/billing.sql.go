@@ -236,7 +236,7 @@ func (q *Queries) DeleteGatewayAccount(ctx context.Context, arg DeleteGatewayAcc
 }
 
 const getGatewayAccount = `-- name: GetGatewayAccount :one
-SELECT id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at, mode FROM gateway_accounts
+SELECT id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at, mode, publishable_key FROM gateway_accounts
 WHERE merchant_id = $1 AND mode = $2 AND provider = $3
 `
 
@@ -258,12 +258,13 @@ func (q *Queries) GetGatewayAccount(ctx context.Context, arg GetGatewayAccountPa
 		&i.Status,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.PublishableKey,
 	)
 	return i, err
 }
 
 const getPrimaryGatewayAccount = `-- name: GetPrimaryGatewayAccount :one
-SELECT id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at, mode FROM gateway_accounts
+SELECT id, merchant_id, provider, account_ref, encrypted_credentials, status, created_at, mode, publishable_key FROM gateway_accounts
 WHERE merchant_id = $1 AND mode = $2 AND status = 'connected'
 ORDER BY created_at DESC
 LIMIT 1
@@ -287,12 +288,13 @@ func (q *Queries) GetPrimaryGatewayAccount(ctx context.Context, arg GetPrimaryGa
 		&i.Status,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.PublishableKey,
 	)
 	return i, err
 }
 
 const listGatewayAccountsByMerchant = `-- name: ListGatewayAccountsByMerchant :many
-SELECT id, merchant_id, mode, provider, account_ref, status, created_at
+SELECT id, merchant_id, mode, provider, account_ref, publishable_key, status, created_at
 FROM gateway_accounts
 WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
@@ -304,13 +306,14 @@ type ListGatewayAccountsByMerchantParams struct {
 }
 
 type ListGatewayAccountsByMerchantRow struct {
-	ID         uuid.UUID          `json:"id"`
-	MerchantID uuid.UUID          `json:"merchant_id"`
-	Mode       string             `json:"mode"`
-	Provider   string             `json:"provider"`
-	AccountRef pgtype.Text        `json:"account_ref"`
-	Status     string             `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID             uuid.UUID          `json:"id"`
+	MerchantID     uuid.UUID          `json:"merchant_id"`
+	Mode           string             `json:"mode"`
+	Provider       string             `json:"provider"`
+	AccountRef     pgtype.Text        `json:"account_ref"`
+	PublishableKey string             `json:"publishable_key"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) ListGatewayAccountsByMerchant(ctx context.Context, arg ListGatewayAccountsByMerchantParams) ([]ListGatewayAccountsByMerchantRow, error) {
@@ -328,6 +331,7 @@ func (q *Queries) ListGatewayAccountsByMerchant(ctx context.Context, arg ListGat
 			&i.Mode,
 			&i.Provider,
 			&i.AccountRef,
+			&i.PublishableKey,
 			&i.Status,
 			&i.CreatedAt,
 		); err != nil {
@@ -516,13 +520,14 @@ func (q *Queries) MarkInvoiceStatus(ctx context.Context, arg MarkInvoiceStatusPa
 }
 
 const upsertGatewayAccount = `-- name: UpsertGatewayAccount :one
-INSERT INTO gateway_accounts (merchant_id, mode, provider, account_ref, encrypted_credentials, status)
-VALUES ($1, $2, $3, $4, $5, 'connected')
+INSERT INTO gateway_accounts (merchant_id, mode, provider, account_ref, encrypted_credentials, publishable_key, status)
+VALUES ($1, $2, $3, $4, $5, $6, 'connected')
 ON CONFLICT (merchant_id, mode, provider)
 DO UPDATE SET account_ref = EXCLUDED.account_ref,
               encrypted_credentials = EXCLUDED.encrypted_credentials,
+              publishable_key = EXCLUDED.publishable_key,
               status = 'connected'
-RETURNING id, merchant_id, mode, provider, account_ref, status, created_at
+RETURNING id, merchant_id, mode, provider, account_ref, publishable_key, status, created_at
 `
 
 type UpsertGatewayAccountParams struct {
@@ -531,16 +536,18 @@ type UpsertGatewayAccountParams struct {
 	Provider             string      `json:"provider"`
 	AccountRef           pgtype.Text `json:"account_ref"`
 	EncryptedCredentials []byte      `json:"encrypted_credentials"`
+	PublishableKey       string      `json:"publishable_key"`
 }
 
 type UpsertGatewayAccountRow struct {
-	ID         uuid.UUID          `json:"id"`
-	MerchantID uuid.UUID          `json:"merchant_id"`
-	Mode       string             `json:"mode"`
-	Provider   string             `json:"provider"`
-	AccountRef pgtype.Text        `json:"account_ref"`
-	Status     string             `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID             uuid.UUID          `json:"id"`
+	MerchantID     uuid.UUID          `json:"merchant_id"`
+	Mode           string             `json:"mode"`
+	Provider       string             `json:"provider"`
+	AccountRef     pgtype.Text        `json:"account_ref"`
+	PublishableKey string             `json:"publishable_key"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) UpsertGatewayAccount(ctx context.Context, arg UpsertGatewayAccountParams) (UpsertGatewayAccountRow, error) {
@@ -550,6 +557,7 @@ func (q *Queries) UpsertGatewayAccount(ctx context.Context, arg UpsertGatewayAcc
 		arg.Provider,
 		arg.AccountRef,
 		arg.EncryptedCredentials,
+		arg.PublishableKey,
 	)
 	var i UpsertGatewayAccountRow
 	err := row.Scan(
@@ -558,6 +566,7 @@ func (q *Queries) UpsertGatewayAccount(ctx context.Context, arg UpsertGatewayAcc
 		&i.Mode,
 		&i.Provider,
 		&i.AccountRef,
+		&i.PublishableKey,
 		&i.Status,
 		&i.CreatedAt,
 	)

@@ -718,6 +718,15 @@ tbody tr:hover { background: var(--panel-2); }
 .checkout-plan { font-weight: 700; font-size: 16px; }
 .checkout-total { font-weight: 800; font-size: 22px; }
 .checkout-foot { margin-top: 16px; text-align: center; color: var(--muted); font-size: 12px; }
+/* Wrapper that makes the Stripe Elements card iframe look like our inputs. */
+.stripe-card-field {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.checkout-testcard { margin-top: 8px; color: var(--muted); font-size: 12px; }
+.gateway-hint { margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .check-ok {
   width: 56px; height: 56px; margin: 0 auto 12px;
   border-radius: 50%;

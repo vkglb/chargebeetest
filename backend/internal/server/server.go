@@ -17,6 +17,7 @@ import (
 	"github.com/chargeebee/platform/internal/auth"
 	"github.com/chargeebee/platform/internal/billing"
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
+	"github.com/chargeebee/platform/internal/gateway"
 	"github.com/chargeebee/platform/internal/realtime"
 )
 
@@ -48,11 +49,12 @@ type Server struct {
 	hub             *realtime.Hub
 	billing         BillingRunner
 	resender        WebhookResender
+	gateways        *gateway.Registry
 	router          chi.Router
 }
 
 // New constructs a Server and registers all routes.
-func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, emitter Emitter, hub *realtime.Hub, billing BillingRunner, resender WebhookResender, logger *slog.Logger) *Server {
+func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, emitter Emitter, hub *realtime.Hub, billing BillingRunner, resender WebhookResender, gateways *gateway.Registry, logger *slog.Logger) *Server {
 	s := &Server{
 		pool:            pool,
 		q:               sqlc.New(pool),
@@ -64,6 +66,7 @@ func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOri
 		hub:             hub,
 		billing:         billing,
 		resender:        resender,
+		gateways:        gateways,
 		router:          chi.NewRouter(),
 	}
 	s.routes()
@@ -102,6 +105,7 @@ func (s *Server) routes() {
 
 		// Public hosted-checkout endpoints (the customer is not authenticated).
 		r.Get("/checkout/sessions/{id}", s.handleGetCheckoutSession)
+		r.Post("/checkout/sessions/{id}/setup-intent", s.handleCheckoutSetupIntent)
 		r.Post("/checkout/sessions/{id}/complete", s.handleCompleteCheckoutSession)
 
 		// Create checkout session: usable via dashboard JWT OR merchant API key.

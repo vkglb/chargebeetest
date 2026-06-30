@@ -55,6 +55,17 @@ type SetupResult struct {
 	GatewayPM       string // pm_xxx
 }
 
+// CardVaulting is an optional capability for gateways that can save a card for
+// later off-session charges via a client-side confirmation flow (e.g. Stripe
+// SetupIntents). The hosted checkout type-asserts to this; gateways without it
+// fall back to the simulated demo flow.
+type CardVaulting interface {
+	// CreateSetupIntent starts an off-session card-vaulting flow for the given
+	// gateway customer and returns a client secret the browser confirms with the
+	// publishable key. After confirmation the card is attached to the customer.
+	CreateSetupIntent(ctx context.Context, creds Credentials, gatewayCustomer string) (clientSecret string, err error)
+}
+
 // PaymentGateway is the provider-agnostic contract used by the billing engine.
 type PaymentGateway interface {
 	// Name returns the provider identifier, e.g. "stripe".

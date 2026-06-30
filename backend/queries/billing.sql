@@ -10,19 +10,20 @@ ORDER BY created_at DESC
 LIMIT 1;
 
 -- name: ListGatewayAccountsByMerchant :many
-SELECT id, merchant_id, mode, provider, account_ref, status, created_at
+SELECT id, merchant_id, mode, provider, account_ref, publishable_key, status, created_at
 FROM gateway_accounts
 WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC;
 
 -- name: UpsertGatewayAccount :one
-INSERT INTO gateway_accounts (merchant_id, mode, provider, account_ref, encrypted_credentials, status)
-VALUES ($1, $2, $3, $4, $5, 'connected')
+INSERT INTO gateway_accounts (merchant_id, mode, provider, account_ref, encrypted_credentials, publishable_key, status)
+VALUES ($1, $2, $3, $4, $5, $6, 'connected')
 ON CONFLICT (merchant_id, mode, provider)
 DO UPDATE SET account_ref = EXCLUDED.account_ref,
               encrypted_credentials = EXCLUDED.encrypted_credentials,
+              publishable_key = EXCLUDED.publishable_key,
               status = 'connected'
-RETURNING id, merchant_id, mode, provider, account_ref, status, created_at;
+RETURNING id, merchant_id, mode, provider, account_ref, publishable_key, status, created_at;
 
 -- name: DeleteGatewayAccount :execrows
 -- Disconnect a gateway for a merchant + mode (removes the stored credentials).

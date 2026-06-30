@@ -98,6 +98,26 @@ func (g *Gateway) Charge(ctx context.Context, creds gateway.Credentials, p gatew
 	}, nil
 }
 
+// CreateSetupIntent starts an off-session card-vaulting flow: it returns a
+// SetupIntent client secret the hosted checkout confirms client-side with the
+// card. usage=off_session means the saved card can later be charged by the
+// merchant without the customer present — exactly what recurring billing +
+// dunning need. SCA, if required, is handled during this confirmation.
+func (g *Gateway) CreateSetupIntent(ctx context.Context, creds gateway.Credentials, gatewayCustomer string) (string, error) {
+	sc := g.clientFor(creds)
+	params := &stripe.SetupIntentParams{
+		Customer:           stripe.String(gatewayCustomer),
+		Usage:              stripe.String("off_session"),
+		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
+	}
+	params.Context = ctx
+	si, err := sc.SetupIntents.New(params)
+	if err != nil {
+		return "", err
+	}
+	return si.ClientSecret, nil
+}
+
 // VerifyWebhook validates a Stripe webhook signature and returns the event type.
 func (g *Gateway) VerifyWebhook(payload []byte, signature, signingSecret string) (string, []byte, error) {
 	event, err := webhook.ConstructEvent(payload, signature, signingSecret)
@@ -120,5 +140,8 @@ func mapStatus(s stripe.PaymentIntentStatus) gateway.ChargeStatus {
 	}
 }
 
-// Ensure Gateway satisfies the interface.
-var _ gateway.PaymentGateway = (*Gateway)(nil)
+// Ensure Gateway satisfies the interfaces.
+var (
+	_ gateway.PaymentGateway = (*Gateway)(nil)
+	_ gateway.CardVaulting   = (*Gateway)(nil)
+)
