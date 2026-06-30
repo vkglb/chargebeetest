@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { getMode, setMode, type Mode } from "../api/client";
+import { api, getMode, setMode, type Me, type Mode } from "../api/client";
 import Tour, { tourDone } from "./Tour";
 
 // Maps nav labels to tour anchor ids (driver.js highlights these elements).
@@ -60,8 +60,22 @@ function loadCollapsed(): Record<string, boolean> {
 export default function Layout() {
   const { logout, merchantId, isGuest } = useAuth();
   const navigate = useNavigate();
-  const [showTour, setShowTour] = useState(!tourDone());
+  const [showTour, setShowTour] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
+
+  // Decide whether to auto-open the product tour. For real accounts the
+  // "completed" flag lives in the database (survives a cleared localStorage);
+  // guests (and a not-yet-deployed backend) fall back to the localStorage flag.
+  useEffect(() => {
+    if (isGuest) {
+      setShowTour(!tourDone());
+      return;
+    }
+    api
+      .get<Me>("/v1/me")
+      .then((me) => setShowTour(!me.tour_completed))
+      .catch(() => setShowTour(!tourDone()));
+  }, [isGuest]);
 
   function toggleGroup(title: string) {
     setCollapsed((prev) => {

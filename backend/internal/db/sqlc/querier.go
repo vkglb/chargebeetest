@@ -68,6 +68,7 @@ type Querier interface {
 	// The merchant's active gateway used for charging, for a given mode.
 	GetPrimaryGatewayAccount(ctx context.Context, arg GetPrimaryGatewayAccountParams) (GatewayAccount, error)
 	GetSubscription(ctx context.Context, arg GetSubscriptionParams) (Subscription, error)
+	GetUserMetadata(ctx context.Context, userID uuid.UUID) (UserMetadatum, error)
 	GetWebhookDelivery(ctx context.Context, arg GetWebhookDeliveryParams) (WebhookDelivery, error)
 	GetWebhookEndpoint(ctx context.Context, arg GetWebhookEndpointParams) (WebhookEndpoint, error)
 	// Record the outcome of a billing pass for the run-history chart.
@@ -102,6 +103,7 @@ type Querier interface {
 	// Force every active/past_due subscription for a merchant + mode to be due now,
 	// so a manual billing run (or the next scheduler tick) will charge them.
 	MarkSubscriptionsDueNow(ctx context.Context, arg MarkSubscriptionsDueNowParams) (int64, error)
+	MarkTourCompleted(ctx context.Context, userID uuid.UUID) error
 	// Per-product current MRR vs MRR as of `cutoff` ($3), for growth arrows.
 	ProductMRRBreakdown(ctx context.Context, arg ProductMRRBreakdownParams) ([]ProductMRRBreakdownRow, error)
 	// ── Period-over-period comparison helpers ──────────────────────────

@@ -236,6 +236,13 @@ type Transaction struct {
 	Mode           string             `json:"mode"`
 }
 
+type UserMetadatum struct {
+	UserID          uuid.UUID          `json:"user_id"`
+	TourCompletedAt *time.Time         `json:"tour_completed_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type WebhookDelivery struct {
 	ID         uuid.UUID          `json:"id"`
 	MerchantID uuid.UUID          `json:"merchant_id"`

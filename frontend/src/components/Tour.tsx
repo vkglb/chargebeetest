@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import { api, isGuest } from "../api/client";
 
 const TOUR_KEY = "chargeebee_tour_done";
 
@@ -19,7 +20,11 @@ export default function Tour({ onClose }: { onClose: () => void }) {
     const finish = () => {
       if (finished) return;
       finished = true;
-      localStorage.setItem(TOUR_KEY, "1");
+      localStorage.setItem(TOUR_KEY, "1"); // fast local cache
+      // Persist server-side so a cleared localStorage won't restart the tour.
+      if (!isGuest()) {
+        api.post("/v1/me/tour/complete").catch(() => {});
+      }
       onClose();
     };
 

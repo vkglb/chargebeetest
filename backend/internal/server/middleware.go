@@ -99,6 +99,15 @@ func merchantID(r *http.Request) uuid.UUID {
 	return uuid.Nil
 }
 
+// userID extracts the authenticated dashboard user id from the request context.
+// It is uuid.Nil when the caller authenticated via an API key (no user).
+func userID(r *http.Request) uuid.UUID {
+	if v, ok := r.Context().Value(ctxUserID).(uuid.UUID); ok {
+		return v
+	}
+	return uuid.Nil
+}
+
 // requireMerchant authenticates via EITHER a dashboard JWT or a merchant API
 // key (Bearer token). This lets both the dashboard and a merchant's server-side
 // integration call the same endpoints (e.g. create checkout sessions).

@@ -114,6 +114,9 @@ func (s *Server) routes() {
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
 
+			r.Get("/me", s.handleGetMe)
+			r.Post("/me/tour/complete", s.handleCompleteTour)
+
 			r.Get("/sites", s.handleListSites)
 			r.Get("/analytics", s.handleAnalytics)
 			r.Get("/analytics/checkout", s.handleCheckoutAnalytics)

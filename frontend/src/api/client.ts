@@ -101,6 +101,13 @@ export interface AuthResponse {
   user_id: string;
 }
 
+// Current user + server-persisted onboarding flags (e.g. product-tour state).
+export interface Me {
+  user_id: string;
+  merchant_id: string;
+  tour_completed: boolean;
+}
+
 export interface Product {
   id: string;
   merchant_id: string;
