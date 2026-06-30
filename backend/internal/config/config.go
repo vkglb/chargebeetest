@@ -25,6 +25,10 @@ type Config struct {
 	// JWTSecret signs dashboard session tokens.
 	JWTSecret string
 
+	// CredentialsEncKey is a base64-encoded 32-byte key used to encrypt stored
+	// gateway secrets at rest (AES-256-GCM). Empty disables encryption (dev only).
+	CredentialsEncKey string
+
 	// CheckoutBaseURL is where hosted checkout pages are served (the frontend).
 	CheckoutBaseURL string
 
@@ -48,6 +52,7 @@ func Load() (*Config, error) {
 		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
 		SendGridAPIKey:      getEnv("SENDGRID_API_KEY", ""),
 		JWTSecret:           getEnv("JWT_SECRET", "dev-insecure-secret-change-me"),
+		CredentialsEncKey:   getEnv("CREDENTIALS_ENC_KEY", ""),
 		CheckoutBaseURL:     getEnv("CHECKOUT_BASE_URL", "http://localhost:5173"),
 		CORSOrigins:         getEnv("CORS_ORIGINS", "*"),
 		AutoMigrate:         getEnv("AUTO_MIGRATE", "false") == "true",

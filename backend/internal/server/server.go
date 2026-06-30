@@ -16,6 +16,7 @@ import (
 
 	"github.com/chargeebee/platform/internal/auth"
 	"github.com/chargeebee/platform/internal/billing"
+	"github.com/chargeebee/platform/internal/crypto"
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 	"github.com/chargeebee/platform/internal/gateway"
 	"github.com/chargeebee/platform/internal/realtime"
@@ -50,11 +51,12 @@ type Server struct {
 	billing         BillingRunner
 	resender        WebhookResender
 	gateways        *gateway.Registry
+	enc             *crypto.Cipher
 	router          chi.Router
 }
 
 // New constructs a Server and registers all routes.
-func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, emitter Emitter, hub *realtime.Hub, billing BillingRunner, resender WebhookResender, gateways *gateway.Registry, logger *slog.Logger) *Server {
+func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOrigins string, emitter Emitter, hub *realtime.Hub, billing BillingRunner, resender WebhookResender, gateways *gateway.Registry, enc *crypto.Cipher, logger *slog.Logger) *Server {
 	s := &Server{
 		pool:            pool,
 		q:               sqlc.New(pool),
@@ -67,6 +69,7 @@ func New(pool *pgxpool.Pool, tokens *auth.TokenManager, checkoutBaseURL, corsOri
 		billing:         billing,
 		resender:        resender,
 		gateways:        gateways,
+		enc:             enc,
 		router:          chi.NewRouter(),
 	}
 	s.routes()

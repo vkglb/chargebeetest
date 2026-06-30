@@ -48,12 +48,19 @@ func (s *Server) handleConnectGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Encrypt the secret at rest (publishable key is client-side, stored as-is).
+	encSecret, err := s.enc.Encrypt(req.SecretKey)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not secure credentials")
+		return
+	}
+
 	account, err := s.q.UpsertGatewayAccount(r.Context(), sqlc.UpsertGatewayAccountParams{
 		MerchantID:           merchantID(r),
 		Mode:                 mode(r),
 		Provider:             req.Provider,
 		AccountRef:           pgText(req.AccountRef),
-		EncryptedCredentials: []byte(req.SecretKey),
+		EncryptedCredentials: encSecret,
 		PublishableKey:       req.PublishableKey,
 	})
 	if err != nil {

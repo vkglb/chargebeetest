@@ -14,6 +14,7 @@ import (
 	"github.com/chargeebee/platform/internal/auth"
 	"github.com/chargeebee/platform/internal/billing"
 	"github.com/chargeebee/platform/internal/config"
+	"github.com/chargeebee/platform/internal/crypto"
 	"github.com/chargeebee/platform/internal/db"
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 	"github.com/chargeebee/platform/internal/gateway"
@@ -93,18 +94,25 @@ func run() error {
 	)
 	logger.Info("payment gateways registered", "providers", gateways.Providers())
 
+	// Encrypts gateway secrets at rest (AES-256-GCM). Passthrough if no key set.
+	cipher, err := crypto.New(cfg.CredentialsEncKey)
+	if err != nil {
+		return err
+	}
+	logger.Info("credential encryption", "enabled", cipher.Enabled())
+
 	// Outbound webhook dispatcher + live-update hub, combined into one publisher.
 	dispatcher := webhooks.New(queries, logger)
 	hub := realtime.NewHub(logger)
 	pub := &publisher{dispatcher: dispatcher, hub: hub}
 
 	// Billing engine + scheduler (the platform "clock").
-	engine := billing.NewEngine(queries, gateways, billing.PlaintextResolver{}, pub, logger)
+	engine := billing.NewEngine(queries, gateways, billing.CipherResolver{Cipher: cipher}, pub, logger)
 	scheduler := billing.NewScheduler(engine, time.Minute)
 	go scheduler.Run(ctx)
 	logger.Info("billing scheduler started", "interval", "1m")
 
-	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, pub, hub, engine, dispatcher, gateways, logger)
+	srv := server.New(pool, tokens, cfg.CheckoutBaseURL, cfg.CORSOrigins, pub, hub, engine, dispatcher, gateways, cipher, logger)
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           srv.Handler(),

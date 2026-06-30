@@ -165,10 +165,16 @@ func (s *Server) handleCheckoutSetupIntent(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	secret, err := s.enc.Decrypt(acct.EncryptedCredentials)
+	if err != nil {
+		s.logger.Error("checkout setup intent: decrypt credentials", "error", err)
+		writeError(w, http.StatusInternalServerError, "could not start payment setup")
+		return
+	}
 	creds := gateway.Credentials{
 		Provider:   acct.Provider,
 		AccountRef: acct.AccountRef.String,
-		SecretKey:  string(acct.EncryptedCredentials),
+		SecretKey:  secret,
 	}
 	custRef, err := gw.CreateCustomer(r.Context(), creds, gateway.CustomerParams{
 		Email: session.CustomerEmail.String,
