@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #0f1115;
   --panel: #171a21;
   --panel-2: #1e222b;
@@ -683,6 +684,17 @@ tbody tr:hover { background: var(--panel-2); }
 }
 .filters-bar input[type="datetime-local"] {
   min-width: 190px;
+  color-scheme: dark;
+}
+.filters-bar input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.85);
+  opacity: 0.6;
+  transition: all 0.15s ease;
+}
+.filters-bar input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  filter: invert(1);
 }
 .filters-bar select {
   cursor: pointer;
