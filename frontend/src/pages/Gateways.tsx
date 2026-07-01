@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type GatewayAccount } from "../api/client";
 import { formatDate } from "../lib/format";
+import Modal from "../components/Modal";
 
 // The catalogue of gateways the platform can integrate. All are connectable;
 // each has a real backend implementation behind the PaymentGateway interface.
@@ -134,58 +135,7 @@ export default function Gateways() {
                 </div>
               </div>
 
-              {connecting === g.provider ? (
-                <div className="gateway-form">
-                  <label>{g.refLabel}</label>
-                  <input
-                    value={accountRef}
-                    onChange={(e) => setAccountRef(e.target.value)}
-                    placeholder={g.refLabel}
-                  />
-                  <label>{g.secretLabel}</label>
-                  <input
-                    type="password"
-                    value={secretKey}
-                    onChange={(e) => setSecretKey(e.target.value)}
-                    placeholder={g.secretLabel}
-                  />
-                  {"pubLabel" in g && g.pubLabel && (
-                    <>
-                      <label>{g.pubLabel}</label>
-                      <input
-                        value={publishableKey}
-                        onChange={(e) => setPublishableKey(e.target.value)}
-                        placeholder={g.pubLabel}
-                      />
-                      <div className="gateway-hint">
-                        Test keys only — real cards vault &amp; dunning runs through Stripe test mode.
-                      </div>
-                    </>
-                  )}
-                  <div className="row" style={{ marginTop: 10 }}>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => connect(g.provider)}
-                      disabled={isSaving !== null || isDeleting !== null}
-                    >
-                      {isSaving === g.provider ? (
-                        <span className="spinner-inline">Connecting...</span>
-                      ) : acct ? (
-                        "Save keys"
-                      ) : (
-                        "Save & connect"
-                      )}
-                    </button>
-                    <button
-                      className="btn-ghost"
-                      onClick={() => setConnecting(null)}
-                      disabled={isSaving !== null || isDeleting !== null}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : acct ? (
+              {acct ? (
                 <div className="gateway-status">
                   <span className="badge active">Connected</span>
                   <div className="mono" style={{ marginTop: 8 }}>
@@ -251,6 +201,74 @@ export default function Gateways() {
           );
         })}
       </div>
+
+      {connecting && (() => {
+        const g = CATALOG.find((x) => x.provider === connecting);
+        if (!g) return null;
+        const acct = connected(connecting);
+        return (
+          <Modal
+            title={`${acct ? "Update" : "Connect"} ${g.name}`}
+            onClose={() => {
+              if (isSaving === null) setConnecting(null);
+            }}
+          >
+            <div className="gateway-form">
+              <label>{g.refLabel}</label>
+              <input
+                value={accountRef}
+                onChange={(e) => setAccountRef(e.target.value)}
+                placeholder={g.refLabel}
+                disabled={isSaving !== null}
+              />
+              <label>{g.secretLabel}</label>
+              <input
+                type="password"
+                value={secretKey}
+                onChange={(e) => setSecretKey(e.target.value)}
+                placeholder={g.secretLabel}
+                disabled={isSaving !== null}
+              />
+              {"pubLabel" in g && g.pubLabel && (
+                <>
+                  <label>{g.pubLabel}</label>
+                  <input
+                    value={publishableKey}
+                    onChange={(e) => setPublishableKey(e.target.value)}
+                    placeholder={g.pubLabel}
+                    disabled={isSaving !== null}
+                  />
+                  <div className="gateway-hint" style={{ marginTop: 10 }}>
+                    Test keys only — real cards vault &amp; dunning runs through Stripe test mode.
+                  </div>
+                </>
+              )}
+              <div className="row" style={{ marginTop: 20 }}>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => connect(g.provider)}
+                  disabled={isSaving !== null}
+                >
+                  {isSaving === g.provider ? (
+                    <span className="spinner-inline">Connecting...</span>
+                  ) : acct ? (
+                    "Save keys"
+                  ) : (
+                    "Save & connect"
+                  )}
+                </button>
+                <button
+                  className="btn-ghost"
+                  onClick={() => setConnecting(null)}
+                  disabled={isSaving !== null}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       <div className="panel" style={{ marginTop: 24 }}>
         <h3>How it works</h3>
