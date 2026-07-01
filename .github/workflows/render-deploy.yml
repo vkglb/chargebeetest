@@ -1,0 +1,39 @@
+# Auto-deploy to Render on every push to main — so you never click
+# "Manual Deploy" again. Uses a Render Deploy Hook stored as a repo secret.
+#
+# One-time setup:
+#   1. Render dashboard -> your service -> Settings -> Deploy Hook -> copy the URL.
+#   2. GitHub repo -> Settings -> Secrets and variables -> Actions -> New secret:
+#        name:  RENDER_DEPLOY_HOOK
+#        value: <the deploy hook URL>
+#
+# After that, pushing to main triggers a deploy automatically. You can also run
+# it by hand from the Actions tab (workflow_dispatch).
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# One deploy at a time; newer pushes cancel an in-flight run.
+concurrency:
+  group: render-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK secret is not set (repo Settings -> Secrets -> Actions)."
+            exit 1
+          fi
+          echo "Triggering Render deploy..."
+          curl -fsS -X POST "$HOOK"
+          echo
+          echo "Deploy triggered."

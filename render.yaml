@@ -20,6 +20,7 @@ services:
     plan: free
     region: virginia
     branch: main
+    autoDeploy: true # deploy automatically on every push to main
     buildCommand: go build -tags netgo -ldflags '-s -w' -o app ./cmd/api
     startCommand: ./app
     healthCheckPath: /healthz
@@ -47,6 +48,7 @@ services:
     runtime: static
     rootDir: frontend
     branch: main
+    autoDeploy: true # deploy automatically on every push to main
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
