@@ -44,6 +44,8 @@ export default function Gateways() {
   const [accountRef, setAccountRef] = useState("");
   const [secretKey, setSecretKey] = useState("");
   const [publishableKey, setPublishableKey] = useState("");
+  const [isSaving, setIsSaving] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   async function load() {
     const res = await api.get<GatewayAccount[]>("/v1/gateways");
@@ -63,6 +65,8 @@ export default function Gateways() {
     setConnecting(provider);
   }
 
+  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
   async function connect(provider: string) {
     setError("");
     const g = CATALOG.find((x) => x.provider === provider);
@@ -70,7 +74,9 @@ export default function Gateways() {
       setError(`${g?.name ?? "Gateway"} requires a secret credential to connect.`);
       return;
     }
+    setIsSaving(provider);
     try {
+      await delay(1500); // 1.5s authentic connecting delay
       await api.post("/v1/gateways", {
         provider,
         account_ref: accountRef,
@@ -84,17 +90,23 @@ export default function Gateways() {
       await load();
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setIsSaving(null);
     }
   }
 
   async function disconnect(provider: string) {
     setError("");
+    setIsDeleting(provider);
     try {
+      await delay(1200); // 1.2s authentic disconnecting delay
       await api.del(`/v1/gateways/${provider}`);
       setConfirmDisconnect(null);
       await load();
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setIsDeleting(null);
     }
   }
 
@@ -151,10 +163,24 @@ export default function Gateways() {
                     </>
                   )}
                   <div className="row" style={{ marginTop: 10 }}>
-                    <button className="btn btn-sm" onClick={() => connect(g.provider)}>
-                      {acct ? "Save keys" : "Save & connect"}
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => connect(g.provider)}
+                      disabled={isSaving !== null || isDeleting !== null}
+                    >
+                      {isSaving === g.provider ? (
+                        <span className="spinner-inline">Connecting...</span>
+                      ) : acct ? (
+                        "Save keys"
+                      ) : (
+                        "Save & connect"
+                      )}
                     </button>
-                    <button className="btn-ghost" onClick={() => setConnecting(null)}>
+                    <button
+                      className="btn-ghost"
+                      onClick={() => setConnecting(null)}
+                      disabled={isSaving !== null || isDeleting !== null}
+                    >
                       Cancel
                     </button>
                   </div>
@@ -170,17 +196,33 @@ export default function Gateways() {
                     <div className="disconnect-confirm">
                       <span>Disconnect {g.name}? Charges through it will stop.</span>
                       <div className="row" style={{ marginTop: 8 }}>
-                        <button className="btn btn-sm btn-danger" onClick={() => disconnect(g.provider)}>
-                          Yes, disconnect
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => disconnect(g.provider)}
+                          disabled={isSaving !== null || isDeleting !== null}
+                        >
+                          {isDeleting === g.provider ? (
+                            <span className="spinner-inline">Disconnecting...</span>
+                          ) : (
+                            "Yes, disconnect"
+                          )}
                         </button>
-                        <button className="btn-ghost" onClick={() => setConfirmDisconnect(null)}>
+                        <button
+                          className="btn-ghost"
+                          onClick={() => setConfirmDisconnect(null)}
+                          disabled={isSaving !== null || isDeleting !== null}
+                        >
                           Cancel
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div className="row" style={{ marginTop: 10 }}>
-                      <button className="btn-ghost" onClick={() => openForm(g.provider)}>
+                      <button
+                        className="btn-ghost"
+                        onClick={() => openForm(g.provider)}
+                        disabled={isSaving !== null || isDeleting !== null}
+                      >
                         Update keys
                       </button>
                       <button
@@ -189,6 +231,7 @@ export default function Gateways() {
                           setConnecting(null);
                           setConfirmDisconnect(g.provider);
                         }}
+                        disabled={isSaving !== null || isDeleting !== null}
                       >
                         Disconnect
                       </button>
@@ -196,7 +239,11 @@ export default function Gateways() {
                   )}
                 </div>
               ) : (
-                <button className="btn btn-sm" onClick={() => openForm(g.provider)}>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => openForm(g.provider)}
+                  disabled={isSaving !== null || isDeleting !== null}
+                >
                   Connect {g.name}
                 </button>
               )}

@@ -961,3 +961,24 @@ tbody tr:hover { background: var(--panel-2); }
   color: var(--text);
   word-break: break-all;
 }
+
+/* ── Spinner animation ────────────────────────────────────── */
+.spinner-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.spinner-inline::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
