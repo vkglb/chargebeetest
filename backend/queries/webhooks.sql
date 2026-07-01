@@ -37,6 +37,6 @@ RETURNING *;
 
 -- name: UpdateWebhookDeliveryResult :one
 UPDATE webhook_deliveries
-SET status = $2, attempts = $3
+SET status = $2, attempts = $3, response_code = $4, error = $5
 WHERE id = $1
 RETURNING *;

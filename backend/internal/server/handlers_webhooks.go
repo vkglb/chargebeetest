@@ -126,13 +126,15 @@ func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 // deliveryResponse exposes the stored payload as raw JSON (the sqlc []byte would
 // otherwise marshal to base64).
 type deliveryResponse struct {
-	ID         uuid.UUID       `json:"id"`
-	EndpointID uuid.UUID       `json:"endpoint_id"`
-	EventType  string          `json:"event_type"`
-	Status     string          `json:"status"`
-	Attempts   int32           `json:"attempts"`
-	Payload    json.RawMessage `json:"payload"`
-	CreatedAt  time.Time       `json:"created_at"`
+	ID           uuid.UUID       `json:"id"`
+	EndpointID   uuid.UUID       `json:"endpoint_id"`
+	EventType    string          `json:"event_type"`
+	Status       string          `json:"status"`
+	Attempts     int32           `json:"attempts"`
+	ResponseCode *int32          `json:"response_code"`
+	Error        string          `json:"error"`
+	Payload      json.RawMessage `json:"payload"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 func (s *Server) handleListWebhookDeliveries(w http.ResponseWriter, r *http.Request) {
@@ -147,10 +149,18 @@ func (s *Server) handleListWebhookDeliveries(w http.ResponseWriter, r *http.Requ
 	}
 	out := make([]deliveryResponse, 0, len(deliveries))
 	for _, d := range deliveries {
-		out = append(out, deliveryResponse{
+		item := deliveryResponse{
 			ID: d.ID, EndpointID: d.EndpointID, EventType: d.EventType,
 			Status: d.Status, Attempts: d.Attempts, Payload: json.RawMessage(d.Payload), CreatedAt: d.CreatedAt.Time,
-		})
+		}
+		if d.ResponseCode.Valid {
+			code := d.ResponseCode.Int32
+			item.ResponseCode = &code
+		}
+		if d.Error.Valid {
+			item.Error = d.Error.String
+		}
+		out = append(out, item)
 	}
 	writeJSON(w, http.StatusOK, out)
 }

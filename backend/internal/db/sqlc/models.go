@@ -245,15 +245,17 @@ type UserMetadatum struct {
 }
 
 type WebhookDelivery struct {
-	ID         uuid.UUID          `json:"id"`
-	MerchantID uuid.UUID          `json:"merchant_id"`
-	EndpointID uuid.UUID          `json:"endpoint_id"`
-	EventType  string             `json:"event_type"`
-	Payload    []byte             `json:"payload"`
-	Status     string             `json:"status"`
-	Attempts   int32              `json:"attempts"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Mode       string             `json:"mode"`
+	ID           uuid.UUID          `json:"id"`
+	MerchantID   uuid.UUID          `json:"merchant_id"`
+	EndpointID   uuid.UUID          `json:"endpoint_id"`
+	EventType    string             `json:"event_type"`
+	Payload      []byte             `json:"payload"`
+	Status       string             `json:"status"`
+	Attempts     int32              `json:"attempts"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Mode         string             `json:"mode"`
+	ResponseCode pgtype.Int4        `json:"response_code"`
+	Error        pgtype.Text        `json:"error"`
 }
 
 type WebhookEndpoint struct {

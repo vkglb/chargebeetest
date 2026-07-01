@@ -991,6 +991,64 @@ tbody tr:hover { background: var(--panel-2); }
   margin-top: 16px;
 }
 
+/* ── Webhook delivery log: filters + detail modal ─────────────── */
+.dl-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+.dl-filters select,
+.dl-filters input { margin: 0; }
+.dl-search { flex: 1 1 200px; min-width: 160px; }
+.dl-filters select { width: auto; }
+.dl-date {
+  display: flex; align-items: center; gap: 6px; margin: 0;
+  color: var(--muted); font-size: 12px; white-space: nowrap;
+}
+.dl-date input { width: auto; }
+
+.modal-tall .dl-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.dl-detail-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 24px 4px; }
+.dl-detail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.dl-detail-event { color: var(--text); font-size: 14px; }
+.dl-meta {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 8px 14px;
+  margin: 0 0 16px;
+}
+.dl-meta dt { color: var(--muted); font-size: 12px; }
+.dl-meta dd { margin: 0; font-size: 13px; }
+.dl-break { word-break: break-all; }
+.dl-error { color: var(--red); }
+.dl-payload-label { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.dl-payload {
+  margin: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text);
+}
+.dl-detail-actions {
+  flex: 0 0 auto;
+  padding: 12px 24px 18px;
+  border-top: 1px solid var(--border);
+  margin-top: 0;
+}
+
 /* Checkbox list (events) */
 .events-head {
   display: flex;

@@ -214,6 +214,8 @@ export interface WebhookDelivery {
   event_type: string;
   status: string; // pending|delivered|failed
   attempts: number;
+  response_code?: number | null; // HTTP status the endpoint returned (null if none)
+  error?: string | null; // failure reason when not delivered
   payload?: unknown; // the event envelope { id, type, mode, created_at, data }
   created_at: string;
 }

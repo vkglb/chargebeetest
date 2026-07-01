@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type WebhookEndpoint, type WebhookDelivery } from "../api/client";
-import { formatDateTime } from "../lib/format";
 import Modal from "../components/Modal";
+import DeliveryLog from "../components/DeliveryLog";
 
 const EVENT_OPTIONS = [
   { id: "subscription.created", desc: "A subscription is created" },
@@ -84,6 +84,11 @@ export default function Webhooks() {
 
   async function remove(id: string) {
     await api.del(`/v1/webhooks/${id}`);
+    await load();
+  }
+
+  async function resendDelivery(id: string) {
+    await api.post(`/v1/webhook-deliveries/${id}/resend`);
     await load();
   }
 
@@ -230,34 +235,11 @@ export default function Webhooks() {
               </div>
 
               <div className="wh-log-title">Delivery log</div>
-              {epDeliveries.length === 0 ? (
-                <div className="empty" style={{ padding: 16 }}>No deliveries sent yet.</div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Event</th>
-                      <th>Status</th>
-                      <th>Attempts</th>
-                      <th>Sent at</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {epDeliveries.map((d) => (
-                      <tr key={d.id}>
-                        <td className="mono" style={{ color: "var(--text)" }}>{d.event_type}</td>
-                        <td>
-                          <span className={`badge ${d.status === "delivered" ? "paid" : d.status === "failed" ? "cancelled" : "open"}`}>
-                            {d.status}
-                          </span>
-                        </td>
-                        <td>{d.attempts}</td>
-                        <td className="mono">{formatDateTime(d.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              <DeliveryLog
+                deliveries={epDeliveries}
+                endpointUrl={ep.url}
+                onResend={resendDelivery}
+              />
             </div>
           );
         })

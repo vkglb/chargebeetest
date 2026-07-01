@@ -10,12 +10,14 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
 )
@@ -133,9 +135,13 @@ func (d *Dispatcher) send(ctx context.Context, ep sqlc.WebhookEndpoint, event Ev
 	const maxAttempts = 3
 	var used int32
 	delivered := false
+	var lastCode int
+	var lastErr string
 
 	for used = 1; used <= maxAttempts; used++ {
-		if d.post(ctx, ep, wireBody, event, signature, contentType) {
+		ok, code, errText := d.post(ctx, ep, wireBody, event, signature, contentType)
+		lastCode, lastErr = code, errText
+		if ok {
 			delivered = true
 			break
 		}
@@ -150,22 +156,27 @@ func (d *Dispatcher) send(ctx context.Context, ep sqlc.WebhookEndpoint, event Ev
 	status := "failed"
 	if delivered {
 		status = "delivered"
+		lastErr = ""
 	}
 	if _, err := d.q.UpdateWebhookDeliveryResult(ctx, sqlc.UpdateWebhookDeliveryResultParams{
-		ID:       delivery.ID,
-		Status:   status,
-		Attempts: used,
+		ID:           delivery.ID,
+		Status:       status,
+		Attempts:     used,
+		ResponseCode: pgInt4(lastCode),
+		Error:        pgText(lastErr),
 	}); err != nil {
 		d.logger.Error("webhook: update delivery", "error", err)
 	}
 	d.logger.Info("webhook delivered",
-		"endpoint", ep.Url, "event", event.Type, "status", status, "attempts", used)
+		"endpoint", ep.Url, "event", event.Type, "status", status, "attempts", used, "code", lastCode)
 }
 
-func (d *Dispatcher) post(ctx context.Context, ep sqlc.WebhookEndpoint, body []byte, event Event, signature, contentType string) bool {
+// post attempts one delivery and reports success, the HTTP status code (0 if no
+// response was received), and a human failure reason (empty on success).
+func (d *Dispatcher) post(ctx context.Context, ep sqlc.WebhookEndpoint, body []byte, event Event, signature, contentType string) (bool, int, string) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ep.Url, bytes.NewReader(body))
 	if err != nil {
-		return false
+		return false, 0, "invalid request: " + err.Error()
 	}
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("X-Webhook-Id", event.ID)
@@ -179,10 +190,30 @@ func (d *Dispatcher) post(ctx context.Context, ep sqlc.WebhookEndpoint, body []b
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return false
+		// No HTTP status — connection refused, DNS, timeout, TLS, etc.
+		return false, 0, "request failed: " + err.Error()
 	}
 	defer resp.Body.Close()
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true, resp.StatusCode, ""
+	}
+	return false, resp.StatusCode, fmt.Sprintf("endpoint returned HTTP %d", resp.StatusCode)
+}
+
+// pgInt4 wraps an HTTP status code, treating 0 (no response) as SQL NULL.
+func pgInt4(code int) pgtype.Int4 {
+	if code == 0 {
+		return pgtype.Int4{}
+	}
+	return pgtype.Int4{Int32: int32(code), Valid: true}
+}
+
+// pgText wraps a failure reason, treating "" as SQL NULL.
+func pgText(s string) pgtype.Text {
+	if s == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: s, Valid: true}
 }
 
 // encodeBody renders the JSON event body in the endpoint's chosen content type

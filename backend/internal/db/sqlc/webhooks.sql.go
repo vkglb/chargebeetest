@@ -9,12 +9,13 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createWebhookDelivery = `-- name: CreateWebhookDelivery :one
 INSERT INTO webhook_deliveries (merchant_id, mode, endpoint_id, event_type, payload, status, attempts)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode
+RETURNING id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode, response_code, error
 `
 
 type CreateWebhookDeliveryParams struct {
@@ -48,6 +49,8 @@ func (q *Queries) CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDe
 		&i.Attempts,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.ResponseCode,
+		&i.Error,
 	)
 	return i, err
 }
@@ -110,7 +113,7 @@ func (q *Queries) DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEn
 }
 
 const getWebhookDelivery = `-- name: GetWebhookDelivery :one
-SELECT id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode FROM webhook_deliveries
+SELECT id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode, response_code, error FROM webhook_deliveries
 WHERE id = $1 AND merchant_id = $2
 `
 
@@ -132,6 +135,8 @@ func (q *Queries) GetWebhookDelivery(ctx context.Context, arg GetWebhookDelivery
 		&i.Attempts,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.ResponseCode,
+		&i.Error,
 	)
 	return i, err
 }
@@ -206,7 +211,7 @@ func (q *Queries) ListEnabledWebhookEndpoints(ctx context.Context, arg ListEnabl
 }
 
 const listWebhookDeliveries = `-- name: ListWebhookDeliveries :many
-SELECT id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode FROM webhook_deliveries
+SELECT id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode, response_code, error FROM webhook_deliveries
 WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
 LIMIT $3
@@ -237,6 +242,8 @@ func (q *Queries) ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeli
 			&i.Attempts,
 			&i.CreatedAt,
 			&i.Mode,
+			&i.ResponseCode,
+			&i.Error,
 		); err != nil {
 			return nil, err
 		}
@@ -292,19 +299,27 @@ func (q *Queries) ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpo
 
 const updateWebhookDeliveryResult = `-- name: UpdateWebhookDeliveryResult :one
 UPDATE webhook_deliveries
-SET status = $2, attempts = $3
+SET status = $2, attempts = $3, response_code = $4, error = $5
 WHERE id = $1
-RETURNING id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode
+RETURNING id, merchant_id, endpoint_id, event_type, payload, status, attempts, created_at, mode, response_code, error
 `
 
 type UpdateWebhookDeliveryResultParams struct {
-	ID       uuid.UUID `json:"id"`
-	Status   string    `json:"status"`
-	Attempts int32     `json:"attempts"`
+	ID           uuid.UUID   `json:"id"`
+	Status       string      `json:"status"`
+	Attempts     int32       `json:"attempts"`
+	ResponseCode pgtype.Int4 `json:"response_code"`
+	Error        pgtype.Text `json:"error"`
 }
 
 func (q *Queries) UpdateWebhookDeliveryResult(ctx context.Context, arg UpdateWebhookDeliveryResultParams) (WebhookDelivery, error) {
-	row := q.db.QueryRow(ctx, updateWebhookDeliveryResult, arg.ID, arg.Status, arg.Attempts)
+	row := q.db.QueryRow(ctx, updateWebhookDeliveryResult,
+		arg.ID,
+		arg.Status,
+		arg.Attempts,
+		arg.ResponseCode,
+		arg.Error,
+	)
 	var i WebhookDelivery
 	err := row.Scan(
 		&i.ID,
@@ -316,6 +331,8 @@ func (q *Queries) UpdateWebhookDeliveryResult(ctx context.Context, arg UpdateWeb
 		&i.Attempts,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.ResponseCode,
+		&i.Error,
 	)
 	return i, err
 }
