@@ -194,7 +194,7 @@ export default function Gateways() {
                           )}
                         </button>
                         <button
-                          className="btn-ghost"
+                          className="btn-ghost btn-sm"
                           onClick={() => setConfirmDisconnect(null)}
                           disabled={isSaving !== null || isDeleting !== null}
                         >
@@ -205,14 +205,14 @@ export default function Gateways() {
                   ) : (
                     <div className="row" style={{ marginTop: 10 }}>
                       <button
-                        className="btn-ghost"
+                        className="btn-ghost btn-sm"
                         onClick={() => openForm(g.provider)}
                         disabled={isSaving !== null || isDeleting !== null}
                       >
                         Update keys
                       </button>
                       <button
-                        className="btn-ghost btn-ghost-danger"
+                        className="btn-ghost btn-ghost-danger btn-sm"
                         onClick={() => {
                           setConnecting(null);
                           setConfirmDisconnect(g.provider);
@@ -321,7 +321,7 @@ export default function Gateways() {
           <h3>Gateway Connection Logs</h3>
           {logs.length > 0 && (
             <button
-              className="link-btn danger"
+              className="btn-ghost btn-ghost-danger btn-sm"
               onClick={() => {
                 setLogs([]);
                 localStorage.removeItem("chargeebee_gateway_logs");
