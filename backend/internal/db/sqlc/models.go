@@ -265,4 +265,6 @@ type WebhookEndpoint struct {
 	Enabled       bool               `json:"enabled"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	Mode          string             `json:"mode"`
+	ContentType   string             `json:"content_type"`
+	VerifySsl     bool               `json:"verify_ssl"`
 }

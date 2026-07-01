@@ -206,6 +206,8 @@ function seed(): DB {
         signing_secret: "whsec_demo_9f2a7c1e",
         events: ["subscription.created", "payment.succeeded", "payment.failed"],
         enabled: true,
+        content_type: "application/json",
+        verify_ssl: true,
         created_at: nowISO(),
       },
     ],
@@ -643,9 +645,11 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
       const ep: WebhookEndpoint = {
         id: uuid(),
         url: body.url,
-        signing_secret: "whsec_" + Math.random().toString(36).slice(2, 18),
+        signing_secret: (body.secret && body.secret.trim()) || "whsec_" + Math.random().toString(36).slice(2, 18),
         events: body.events && body.events.length ? body.events : ["*"],
         enabled: true,
+        content_type: body.content_type || "application/json",
+        verify_ssl: body.verify_ssl !== false,
         created_at: nowISO(),
       };
       db.webhooks.unshift(ep);

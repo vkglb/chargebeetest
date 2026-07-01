@@ -7,10 +7,12 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,17 +31,22 @@ type Event struct {
 
 // Dispatcher fans an event out to all matching endpoints for a merchant+mode.
 type Dispatcher struct {
-	q      *sqlc.Queries
-	http   *http.Client
-	logger *slog.Logger
+	q        *sqlc.Queries
+	http     *http.Client // verifies TLS certificates (default)
+	insecure *http.Client // skips TLS verification (for verify_ssl=false endpoints)
+	logger   *slog.Logger
 }
 
 // New constructs a Dispatcher.
 func New(q *sqlc.Queries, logger *slog.Logger) *Dispatcher {
+	insecureTransport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402 — opt-in per endpoint
+	}
 	return &Dispatcher{
-		q:      q,
-		http:   &http.Client{Timeout: 15 * time.Second},
-		logger: logger,
+		q:        q,
+		http:     &http.Client{Timeout: 15 * time.Second},
+		insecure: &http.Client{Timeout: 15 * time.Second, Transport: insecureTransport},
+		logger:   logger,
 	}
 }
 
@@ -119,13 +126,16 @@ func (d *Dispatcher) send(ctx context.Context, ep sqlc.WebhookEndpoint, event Ev
 		return
 	}
 
-	signature := sign(body, ep.SigningSecret)
+	// Encode the payload the way the endpoint asked for, and sign exactly what
+	// goes on the wire so the receiver can verify the bytes it actually gets.
+	wireBody, contentType := encodeBody(body, ep.ContentType)
+	signature := sign(wireBody, ep.SigningSecret)
 	const maxAttempts = 3
 	var used int32
 	delivered := false
 
 	for used = 1; used <= maxAttempts; used++ {
-		if d.post(ctx, ep.Url, body, event, signature) {
+		if d.post(ctx, ep, wireBody, event, signature, contentType) {
 			delivered = true
 			break
 		}
@@ -152,22 +162,38 @@ func (d *Dispatcher) send(ctx context.Context, ep sqlc.WebhookEndpoint, event Ev
 		"endpoint", ep.Url, "event", event.Type, "status", status, "attempts", used)
 }
 
-func (d *Dispatcher) post(ctx context.Context, url string, body []byte, event Event, signature string) bool {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+func (d *Dispatcher) post(ctx context.Context, ep sqlc.WebhookEndpoint, body []byte, event Event, signature, contentType string) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ep.Url, bytes.NewReader(body))
 	if err != nil {
 		return false
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("X-Webhook-Id", event.ID)
 	req.Header.Set("X-Webhook-Event", event.Type)
 	req.Header.Set("X-Webhook-Signature", signature)
 
-	resp, err := d.http.Do(req)
+	// Honor the endpoint's SSL-verification preference.
+	client := d.http
+	if !ep.VerifySsl {
+		client = d.insecure
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return false
 	}
 	defer resp.Body.Close()
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
+}
+
+// encodeBody renders the JSON event body in the endpoint's chosen content type
+// and returns the wire bytes plus the Content-Type header to send. For form
+// encoding the JSON is placed in a "payload" field, matching GitHub.
+func encodeBody(jsonBody []byte, contentType string) ([]byte, string) {
+	if contentType == "application/x-www-form-urlencoded" {
+		form := url.Values{"payload": {string(jsonBody)}}
+		return []byte(form.Encode()), "application/x-www-form-urlencoded"
+	}
+	return jsonBody, "application/json"
 }
 
 // sign returns the HMAC-SHA256 hex signature of body using the endpoint secret.

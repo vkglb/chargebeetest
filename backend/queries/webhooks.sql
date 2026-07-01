@@ -1,6 +1,6 @@
 -- name: CreateWebhookEndpoint :one
-INSERT INTO webhook_endpoints (merchant_id, mode, url, signing_secret, events, enabled)
-VALUES ($1, $2, $3, $4, $5, true)
+INSERT INTO webhook_endpoints (merchant_id, mode, url, signing_secret, events, enabled, content_type, verify_ssl)
+VALUES ($1, $2, $3, $4, $5, true, $6, $7)
 RETURNING *;
 
 -- name: ListWebhookEndpoints :many

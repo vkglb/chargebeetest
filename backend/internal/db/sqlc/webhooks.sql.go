@@ -53,9 +53,9 @@ func (q *Queries) CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDe
 }
 
 const createWebhookEndpoint = `-- name: CreateWebhookEndpoint :one
-INSERT INTO webhook_endpoints (merchant_id, mode, url, signing_secret, events, enabled)
-VALUES ($1, $2, $3, $4, $5, true)
-RETURNING id, merchant_id, url, signing_secret, events, enabled, created_at, mode
+INSERT INTO webhook_endpoints (merchant_id, mode, url, signing_secret, events, enabled, content_type, verify_ssl)
+VALUES ($1, $2, $3, $4, $5, true, $6, $7)
+RETURNING id, merchant_id, url, signing_secret, events, enabled, created_at, mode, content_type, verify_ssl
 `
 
 type CreateWebhookEndpointParams struct {
@@ -64,6 +64,8 @@ type CreateWebhookEndpointParams struct {
 	Url           string    `json:"url"`
 	SigningSecret string    `json:"signing_secret"`
 	Events        []string  `json:"events"`
+	ContentType   string    `json:"content_type"`
+	VerifySsl     bool      `json:"verify_ssl"`
 }
 
 func (q *Queries) CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error) {
@@ -73,6 +75,8 @@ func (q *Queries) CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEn
 		arg.Url,
 		arg.SigningSecret,
 		arg.Events,
+		arg.ContentType,
+		arg.VerifySsl,
 	)
 	var i WebhookEndpoint
 	err := row.Scan(
@@ -84,6 +88,8 @@ func (q *Queries) CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEn
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.ContentType,
+		&i.VerifySsl,
 	)
 	return i, err
 }
@@ -131,7 +137,7 @@ func (q *Queries) GetWebhookDelivery(ctx context.Context, arg GetWebhookDelivery
 }
 
 const getWebhookEndpoint = `-- name: GetWebhookEndpoint :one
-SELECT id, merchant_id, url, signing_secret, events, enabled, created_at, mode FROM webhook_endpoints
+SELECT id, merchant_id, url, signing_secret, events, enabled, created_at, mode, content_type, verify_ssl FROM webhook_endpoints
 WHERE id = $1 AND merchant_id = $2
 `
 
@@ -152,12 +158,14 @@ func (q *Queries) GetWebhookEndpoint(ctx context.Context, arg GetWebhookEndpoint
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.Mode,
+		&i.ContentType,
+		&i.VerifySsl,
 	)
 	return i, err
 }
 
 const listEnabledWebhookEndpoints = `-- name: ListEnabledWebhookEndpoints :many
-SELECT id, merchant_id, url, signing_secret, events, enabled, created_at, mode FROM webhook_endpoints
+SELECT id, merchant_id, url, signing_secret, events, enabled, created_at, mode, content_type, verify_ssl FROM webhook_endpoints
 WHERE merchant_id = $1 AND mode = $2 AND enabled = true
 `
 
@@ -184,6 +192,8 @@ func (q *Queries) ListEnabledWebhookEndpoints(ctx context.Context, arg ListEnabl
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.Mode,
+			&i.ContentType,
+			&i.VerifySsl,
 		); err != nil {
 			return nil, err
 		}
@@ -239,7 +249,7 @@ func (q *Queries) ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeli
 }
 
 const listWebhookEndpoints = `-- name: ListWebhookEndpoints :many
-SELECT id, merchant_id, url, signing_secret, events, enabled, created_at, mode FROM webhook_endpoints
+SELECT id, merchant_id, url, signing_secret, events, enabled, created_at, mode, content_type, verify_ssl FROM webhook_endpoints
 WHERE merchant_id = $1 AND mode = $2
 ORDER BY created_at DESC
 `
@@ -267,6 +277,8 @@ func (q *Queries) ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpo
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.Mode,
+			&i.ContentType,
+			&i.VerifySsl,
 		); err != nil {
 			return nil, err
 		}

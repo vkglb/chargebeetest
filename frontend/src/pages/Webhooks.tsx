@@ -21,6 +21,9 @@ export default function Webhooks() {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [events, setEvents] = useState<string[]>([]);
+  const [secret, setSecret] = useState("");
+  const [contentType, setContentType] = useState("application/json");
+  const [verifySsl, setVerifySsl] = useState(true);
   const [saving, setSaving] = useState(false);
 
   async function load() {
@@ -38,6 +41,9 @@ export default function Webhooks() {
   function openModal() {
     setUrl("");
     setEvents([]);
+    setSecret("");
+    setContentType("application/json");
+    setVerifySsl(true);
     setError("");
     setOpen(true);
   }
@@ -60,7 +66,13 @@ export default function Webhooks() {
     }
     setSaving(true);
     try {
-      await api.post("/v1/webhooks", { url, events });
+      await api.post("/v1/webhooks", {
+        url,
+        events,
+        secret: secret.trim(),
+        content_type: contentType,
+        verify_ssl: verifySsl,
+      });
       setOpen(false);
       await load();
     } catch (e) {
@@ -124,6 +136,47 @@ export default function Webhooks() {
               ))}
             </div>
 
+            <label style={{ marginTop: 14 }}>Content type</label>
+            <select value={contentType} onChange={(e) => setContentType(e.target.value)}>
+              <option value="application/json">application/json</option>
+              <option value="application/x-www-form-urlencoded">
+                application/x-www-form-urlencoded
+              </option>
+            </select>
+
+            <label style={{ marginTop: 14 }}>Secret (optional)</label>
+            <input
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder="Leave blank to auto-generate a signing secret"
+            />
+            <div className="field-hint">
+              Used to sign every payload with HMAC-SHA256 (sent in the{" "}
+              <span className="mono">X-Webhook-Signature</span> header).
+            </div>
+
+            <label style={{ marginTop: 14 }}>SSL verification</label>
+            <div className="ssl-options">
+              <label className="ssl-row">
+                <input
+                  type="radio"
+                  name="verify_ssl"
+                  checked={verifySsl}
+                  onChange={() => setVerifySsl(true)}
+                />
+                <span>Enable SSL verification</span>
+              </label>
+              <label className="ssl-row">
+                <input
+                  type="radio"
+                  name="verify_ssl"
+                  checked={!verifySsl}
+                  onChange={() => setVerifySsl(false)}
+                />
+                <span className="ssl-danger">Disable (not recommended)</span>
+              </label>
+            </div>
+
             {error && <div className="error">{error}</div>}
 
             <div className="row" style={{ marginTop: 18, gap: 10 }}>
@@ -167,6 +220,12 @@ export default function Webhooks() {
                 </div>
               </div>
               <div className="wh-secret mono">Signing secret: {ep.signing_secret}</div>
+              <div className="wh-meta">
+                <span className="wh-tag mono">{ep.content_type}</span>
+                <span className={`wh-tag ${ep.verify_ssl ? "" : "wh-tag-warn"}`}>
+                  {ep.verify_ssl ? "SSL verified" : "SSL verification off"}
+                </span>
+              </div>
 
               <div className="wh-log-title">Delivery log</div>
               {epDeliveries.length === 0 ? (

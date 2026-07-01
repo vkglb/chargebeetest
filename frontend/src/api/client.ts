@@ -203,6 +203,8 @@ export interface WebhookEndpoint {
   signing_secret: string;
   events: string[];
   enabled: boolean;
+  content_type: string; // application/json | application/x-www-form-urlencoded
+  verify_ssl: boolean;
   created_at: string;
 }
 

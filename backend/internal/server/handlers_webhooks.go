@@ -15,8 +15,18 @@ import (
 )
 
 type createWebhookRequest struct {
-	URL    string   `json:"url"`
-	Events []string `json:"events"`
+	URL         string   `json:"url"`
+	Events      []string `json:"events"`
+	Secret      string   `json:"secret"`       // optional; auto-generated when blank
+	ContentType string   `json:"content_type"` // application/json | application/x-www-form-urlencoded
+	VerifySSL   *bool    `json:"verify_ssl"`   // optional; defaults to true
+}
+
+// allowedContentTypes are the payload encodings a merchant may pick, mirroring
+// the options on GitHub's webhook form.
+var allowedContentTypes = map[string]bool{
+	"application/json":                  true,
+	"application/x-www-form-urlencoded": true,
 }
 
 func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -28,6 +38,23 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 	req.URL = strings.TrimSpace(req.URL)
 	if len(req.Events) == 0 {
 		req.Events = []string{"*"}
+	}
+
+	// Content type: default to JSON; reject anything unsupported.
+	req.ContentType = strings.TrimSpace(req.ContentType)
+	if req.ContentType == "" {
+		req.ContentType = "application/json"
+	}
+	if !allowedContentTypes[req.ContentType] {
+		writeError(w, http.StatusBadRequest, "content_type must be application/json or application/x-www-form-urlencoded")
+		return
+	}
+
+	// SSL verification defaults on; a merchant may disable it for endpoints with
+	// self-signed certs (not recommended).
+	verifySSL := true
+	if req.VerifySSL != nil {
+		verifySSL = *req.VerifySSL
 	}
 
 	// Reject a URL that's already registered for this merchant + mode.
@@ -46,13 +73,20 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	secret := "whsec_" + randomHex(24)
+	// Use the merchant's own secret when supplied (like GitHub), otherwise mint
+	// one. The secret keys the HMAC-SHA256 signature on every delivery.
+	secret := strings.TrimSpace(req.Secret)
+	if secret == "" {
+		secret = "whsec_" + randomHex(24)
+	}
 	ep, err := s.q.CreateWebhookEndpoint(r.Context(), sqlc.CreateWebhookEndpointParams{
 		MerchantID:    merchantID(r),
 		Mode:          mode(r),
 		Url:           req.URL,
 		SigningSecret: secret,
 		Events:        req.Events,
+		ContentType:   req.ContentType,
+		VerifySsl:     verifySSL,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create webhook endpoint")

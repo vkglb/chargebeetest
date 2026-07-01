@@ -974,6 +974,17 @@ tbody tr:hover { background: var(--panel-2); }
 .wh-events { color: var(--muted); margin-top: 4px; font-size: 12px; }
 .wh-head-right { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
 .wh-secret { color: var(--muted); margin: 12px 0 4px; word-break: break-all; }
+.wh-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 4px; }
+.wh-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 6px;
+  background: var(--panel-2); color: var(--muted); border: 1px solid var(--border);
+}
+.wh-tag-warn { color: var(--amber); border-color: rgba(241,196,15,0.4); }
+.field-hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.ssl-options { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.ssl-row { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.ssl-row input { width: auto; margin: 0; }
+.ssl-danger { color: var(--red); }
 .wh-log-title {
   margin: 16px 0 6px;
   font-size: 12px;
