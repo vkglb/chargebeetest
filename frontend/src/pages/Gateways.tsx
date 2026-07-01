@@ -37,6 +37,14 @@ const CATALOG = [
   },
 ];
 
+interface GatewayLog {
+  id: string;
+  timestamp: string;
+  gateway: string;
+  event: "Connected" | "Disconnected" | "Keys Updated";
+  accountRef: string;
+}
+
 export default function Gateways() {
   const [accounts, setAccounts] = useState<GatewayAccount[]>([]);
   const [error, setError] = useState("");
@@ -47,6 +55,14 @@ export default function Gateways() {
   const [publishableKey, setPublishableKey] = useState("");
   const [isSaving, setIsSaving] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [logs, setLogs] = useState<GatewayLog[]>(() => {
+    try {
+      const raw = localStorage.getItem("chargeebee_gateway_logs");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   async function load() {
     const res = await api.get<GatewayAccount[]>("/v1/gateways");
@@ -68,6 +84,21 @@ export default function Gateways() {
 
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  const addLog = (gatewayName: string, eventType: "Connected" | "Disconnected" | "Keys Updated", ref: string) => {
+    const newLog: GatewayLog = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      gateway: gatewayName,
+      event: eventType,
+      accountRef: ref,
+    };
+    setLogs((prev) => {
+      const updated = [newLog, ...prev];
+      localStorage.setItem("chargeebee_gateway_logs", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   async function connect(provider: string) {
     setError("");
     const g = CATALOG.find((x) => x.provider === provider);
@@ -84,6 +115,8 @@ export default function Gateways() {
         secret_key: secretKey.trim(),
         publishable_key: publishableKey.trim(),
       });
+      const existed = accounts.some((a) => a.provider === provider);
+      addLog(g?.name ?? provider, existed ? "Keys Updated" : "Connected", accountRef || "—");
       setConnecting(null);
       setAccountRef("");
       setSecretKey("");
@@ -101,7 +134,10 @@ export default function Gateways() {
     setIsDeleting(provider);
     try {
       await delay(1200); // 1.2s authentic disconnecting delay
+      const g = CATALOG.find((x) => x.provider === provider);
+      const acct = connected(provider);
       await api.del(`/v1/gateways/${provider}`);
+      addLog(g?.name ?? provider, "Disconnected", acct?.account_ref || "—");
       setConfirmDisconnect(null);
       await load();
     } catch (e) {
@@ -278,6 +314,66 @@ export default function Gateways() {
           and the money settles directly into your balance. Cards are vaulted by the
           gateway (PCI stays with them) — we only store reference tokens.
         </p>
+      </div>
+
+      <div className="panel" style={{ marginTop: 24 }}>
+        <div className="panel-head">
+          <h3>Gateway Connection Logs</h3>
+          {logs.length > 0 && (
+            <button
+              className="link-btn danger"
+              onClick={() => {
+                setLogs([]);
+                localStorage.removeItem("chargeebee_gateway_logs");
+              }}
+            >
+              Clear log history
+            </button>
+          )}
+        </div>
+        {logs.length === 0 ? (
+          <div className="empty" style={{ padding: 16 }}>No connection events logged yet.</div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Gateway</th>
+                <th>Event</th>
+                <th>Account Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => {
+                const formattedTime = new Date(log.timestamp).toLocaleString([], {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: true,
+                });
+                return (
+                  <tr key={log.id}>
+                    <td className="mono">{formattedTime}</td>
+                    <td><strong>{log.gateway}</strong></td>
+                    <td>
+                      <span className={`badge ${
+                        log.event === "Connected" ? "paid" : 
+                        log.event === "Keys Updated" ? "trialing" : 
+                        "cancelled"
+                      }`}>
+                        {log.event}
+                      </span>
+                    </td>
+                    <td className="mono">{log.accountRef || "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
