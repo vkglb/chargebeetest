@@ -62,6 +62,24 @@ export default function Layout() {
   const navigate = useNavigate();
   const [showTour, setShowTour] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
+  const [theme, setTheme] = useState(() => localStorage.getItem("chargeebee_theme") || "dark");
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "light") {
+      root.classList.add("light-theme");
+    } else {
+      root.classList.remove("light-theme");
+    }
+    localStorage.setItem("chargeebee_theme", theme);
+  }, [theme]);
+
+  function getGreeting() {
+    const hr = new Date().getHours();
+    if (hr < 12) return "Good morning 🌅";
+    if (hr < 17) return "Good afternoon ☀️";
+    return "Good evening 🌙";
+  }
 
   // Decide whether to auto-open the product tour. For real accounts the
   // "completed" flag lives in the database (survives a cleared localStorage);
@@ -172,6 +190,26 @@ export default function Layout() {
         </div>
       </aside>
       <main className="content">
+        <header className="content-header">
+          <div>
+            <h2 className="header-greeting">{getGreeting()}</h2>
+            <p className="header-sub">Here is what is happening today.</p>
+          </div>
+          <div className="header-controls">
+            <div className="theme-switch-wrapper">
+              <span className="theme-icon">{theme === "light" ? "☀️" : "🌙"}</span>
+              <label className="theme-switch">
+                <input
+                  type="checkbox"
+                  checked={theme === "light"}
+                  onChange={() => setTheme(theme === "light" ? "dark" : "light")}
+                />
+                <span className="theme-slider"></span>
+              </label>
+            </div>
+          </div>
+        </header>
+
         <div className={`mode-banner ${current}`}>
           <span className="mode-dot" />
           {current === "live" ? (
