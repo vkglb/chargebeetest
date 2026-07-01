@@ -14,6 +14,9 @@ export default function Invoices() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
@@ -33,15 +36,48 @@ export default function Invoices() {
     customers.find((c) => c.id === id)?.email ?? id.slice(0, 8);
 
   const filtered = useMemo(() => {
-    if (!q) return invoices;
-    return invoices.filter((i) =>
-      [i.id, customerEmail(i.customer_id), i.status].some((f) => f.toLowerCase().includes(q)),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoices, q, customers]);
+    let result = invoices;
 
-  // Reset to page 1 whenever the filter changes.
-  useEffect(() => setPage(1), [q]);
+    // Search query filter
+    if (q) {
+      result = result.filter((i) =>
+        [i.id, customerEmail(i.customer_id), i.status].some((f) => f.toLowerCase().includes(q))
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      result = result.filter((i) => i.status.toLowerCase() === statusFilter.toLowerCase());
+    }
+
+    // Date from filter
+    if (fromDate) {
+      const fromTime = new Date(fromDate).getTime();
+      result = result.filter((i) => new Date(i.created_at).getTime() >= fromTime);
+    }
+
+    // Date to filter
+    if (toDate) {
+      const toTime = new Date(toDate).getTime();
+      result = result.filter((i) => new Date(i.created_at).getTime() <= toTime);
+    }
+
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices, q, customers, statusFilter, fromDate, toDate]);
+
+  // Reset to page 1 whenever any filter changes.
+  useEffect(() => setPage(1), [q, statusFilter, fromDate, toDate]);
+  
+  const hasActiveFilters = query || statusFilter !== "all" || fromDate || toDate;
+
+  const clearFilters = () => {
+    setQuery("");
+    setStatusFilter("all");
+    setFromDate("");
+    setToDate("");
+  };
+
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -62,14 +98,60 @@ export default function Invoices() {
             All invoices
             <span className="count">{filtered.length}</span>
           </h3>
-          {invoices.length > 0 && (
-            <SearchInput value={query} onChange={setQuery} placeholder="Search id, customer or status…" />
-          )}
         </div>
+
+        {invoices.length > 0 && (
+          <div className="filters-bar">
+            <SearchInput value={query} onChange={setQuery} placeholder="Search id, customer or status…" />
+            
+            <div className="filters-group">
+              <label htmlFor="status-filter">Status</label>
+              <select
+                id="status-filter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Statuses</option>
+                <option value="draft">Draft</option>
+                <option value="open">Open</option>
+                <option value="paid">Paid</option>
+                <option value="void">Void</option>
+                <option value="uncollectible">Uncollectible</option>
+              </select>
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="from-date">From</label>
+              <input
+                id="from-date"
+                type="datetime-local"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="to-date">To</label>
+              <input
+                id="to-date"
+                type="datetime-local"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button className="btn-clear-filters" onClick={clearFilters}>
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+
         {invoices.length === 0 ? (
           <div className="empty">No invoices yet. They're created when subscriptions bill.</div>
         ) : filtered.length === 0 ? (
-          <div className="empty">No invoices match “{query}”.</div>
+          <div className="empty">No invoices match the selected filters.</div>
         ) : (
           <table>
             <thead>
