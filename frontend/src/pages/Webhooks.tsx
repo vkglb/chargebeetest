@@ -102,7 +102,7 @@ export default function Webhooks() {
             />
 
             <div className="events-head">
-              <label style={{ margin: "16px 0 0" }}>Events to send</label>
+              <label>Events to send</label>
               <button type="button" className="link-btn" onClick={toggleAll}>
                 {allSelected ? "Clear all" : "Select all"}
               </button>

@@ -918,7 +918,20 @@ tbody tr:hover { background: var(--panel-2); }
 .modal-close:hover { color: var(--text); }
 
 /* Checkbox list (events) */
-.events-head { display: flex; justify-content: space-between; align-items: center; }
+.events-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+.events-head label {
+  display: inline-block;
+  margin: 0;
+}
+.events-head button {
+  margin: 0;
+}
 .check-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .check-row {
   display: flex;
