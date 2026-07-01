@@ -25,6 +25,8 @@ export default function Products() {
   const [intervalCount, setIntervalCount] = useState("1");
   const [trialDays, setTrialDays] = useState("0");
   const [query, setQuery] = useState("");
+  const [currencyFilter, setCurrencyFilter] = useState("all");
+  const [intervalFilter, setIntervalFilter] = useState("all");
   const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
@@ -81,16 +83,37 @@ export default function Products() {
   const productName = (id: string) => products.find((p) => p.id === id)?.name ?? "—";
 
   const filtered = useMemo(() => {
-    if (!q) return prices;
-    return prices.filter((p) =>
-      [productName(p.product_id), p.interval_unit, p.currency].some((f) =>
-        f.toLowerCase().includes(q),
-      ),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prices, q, products]);
+    let result = prices;
 
-  useEffect(() => setPage(1), [q]);
+    if (q) {
+      result = result.filter((p) =>
+        [productName(p.product_id), p.interval_unit, p.currency].some((f) =>
+          f.toLowerCase().includes(q)
+        )
+      );
+    }
+
+    if (currencyFilter !== "all") {
+      result = result.filter((p) => p.currency.toLowerCase() === currencyFilter.toLowerCase());
+    }
+
+    if (intervalFilter !== "all") {
+      result = result.filter((p) => p.interval_unit.toLowerCase() === intervalFilter.toLowerCase());
+    }
+
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prices, q, products, currencyFilter, intervalFilter]);
+
+  useEffect(() => setPage(1), [q, currencyFilter, intervalFilter]);
+
+  const hasActiveFilters = query || currencyFilter !== "all" || intervalFilter !== "all";
+
+  const clearFilters = () => {
+    setQuery("");
+    setCurrencyFilter("all");
+    setIntervalFilter("all");
+  };
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -231,14 +254,54 @@ export default function Products() {
             Plans
             <span className="count">{filtered.length}</span>
           </h3>
-          {prices.length > 0 && (
-            <SearchInput value={query} onChange={setQuery} placeholder="Search product or interval…" />
-          )}
         </div>
+
+        {prices.length > 0 && (
+          <div className="filters-bar">
+            <SearchInput value={query} onChange={setQuery} placeholder="Search product or interval…" />
+            
+            <div className="filters-group">
+              <label htmlFor="currency-filter">Currency</label>
+              <select
+                id="currency-filter"
+                value={currencyFilter}
+                onChange={(e) => setCurrencyFilter(e.target.value)}
+              >
+                <option value="all">All Currencies</option>
+                <option value="usd">USD</option>
+                <option value="eur">EUR</option>
+                <option value="gbp">GBP</option>
+                <option value="inr">INR</option>
+              </select>
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="interval-filter">Interval</label>
+              <select
+                id="interval-filter"
+                value={intervalFilter}
+                onChange={(e) => setIntervalFilter(e.target.value)}
+              >
+                <option value="all">All Intervals</option>
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+                <option value="year">Year</option>
+              </select>
+            </div>
+
+            {hasActiveFilters && (
+              <button className="btn-clear-filters" onClick={clearFilters}>
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+
         {prices.length === 0 ? (
           <div className="empty">No plans yet.</div>
         ) : filtered.length === 0 ? (
-          <div className="empty">No plans match “{query}”.</div>
+          <div className="empty">No plans match the selected filters.</div>
         ) : (
           <table>
             <thead>

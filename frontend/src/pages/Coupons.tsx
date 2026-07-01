@@ -26,6 +26,10 @@ export default function Coupons() {
   const [maxRedemptions, setMaxRedemptions] = useState("");
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
@@ -37,13 +41,51 @@ export default function Coupons() {
   }, []);
 
   const filtered = useMemo(() => {
-    if (!q) return coupons;
-    return coupons.filter((c) =>
-      [c.code, c.discount_type].some((f) => f.toLowerCase().includes(q)),
-    );
-  }, [coupons, q]);
+    let result = coupons;
 
-  useEffect(() => setPage(1), [q]);
+    if (q) {
+      result = result.filter((c) =>
+        [c.code, c.discount_type].some((f) => f.toLowerCase().includes(q))
+      );
+    }
+
+    if (typeFilter !== "all") {
+      result = result.filter((c) => c.discount_type.toLowerCase() === typeFilter.toLowerCase());
+    }
+
+    if (statusFilter !== "all") {
+      result = result.filter((c) => {
+        const isArchived = c.status === "archived";
+        if (statusFilter === "archived") return isArchived;
+        return !isArchived;
+      });
+    }
+
+    if (fromDate) {
+      const fromTime = new Date(fromDate).getTime();
+      result = result.filter((c) => new Date(c.created_at).getTime() >= fromTime);
+    }
+
+    if (toDate) {
+      const toTime = new Date(toDate).getTime();
+      result = result.filter((c) => new Date(c.created_at).getTime() <= toTime);
+    }
+
+    return result;
+  }, [coupons, q, typeFilter, statusFilter, fromDate, toDate]);
+
+  useEffect(() => setPage(1), [q, typeFilter, statusFilter, fromDate, toDate]);
+
+  const hasActiveFilters = query || typeFilter !== "all" || statusFilter !== "all" || fromDate || toDate;
+
+  const clearFilters = () => {
+    setQuery("");
+    setTypeFilter("all");
+    setStatusFilter("all");
+    setFromDate("");
+    setToDate("");
+  };
+
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -169,14 +211,70 @@ export default function Coupons() {
             All coupons
             <span className="count">{filtered.length}</span>
           </h3>
-          {coupons.length > 0 && (
-            <SearchInput value={query} onChange={setQuery} placeholder="Search code or type…" />
-          )}
         </div>
+
+        {coupons.length > 0 && (
+          <div className="filters-bar">
+            <SearchInput value={query} onChange={setQuery} placeholder="Search code or type…" />
+            
+            <div className="filters-group">
+              <label htmlFor="type-filter">Discount Type</label>
+              <select
+                id="type-filter"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="all">All Types</option>
+                <option value="percentage">Percentage</option>
+                <option value="fixed">Fixed Amount</option>
+              </select>
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="status-filter">Status</label>
+              <select
+                id="status-filter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="from-date">Created From</label>
+              <input
+                id="from-date"
+                type="datetime-local"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="to-date">To</label>
+              <input
+                id="to-date"
+                type="datetime-local"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button className="btn-clear-filters" onClick={clearFilters}>
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+
         {coupons.length === 0 ? (
           <div className="empty">No coupons yet.</div>
         ) : filtered.length === 0 ? (
-          <div className="empty">No coupons match “{query}”.</div>
+          <div className="empty">No coupons match the selected filters.</div>
         ) : (
           <table>
             <thead>

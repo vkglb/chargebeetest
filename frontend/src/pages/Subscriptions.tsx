@@ -38,6 +38,9 @@ export default function Subscriptions() {
   const [quantity, setQuantity] = useState("1");
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
   const [billing, setBilling] = useState(false);
@@ -138,16 +141,45 @@ export default function Subscriptions() {
   const canCreate = customers.length > 0 && prices.length > 0;
 
   const filtered = useMemo(() => {
-    if (!q) return subs;
-    return subs.filter((s) =>
-      [customerEmail(s.customer_id), priceLabel(s.price_id), s.status].some((f) =>
-        f.toLowerCase().includes(q),
-      ),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subs, q, customers, prices, products]);
+    let result = subs;
 
-  useEffect(() => setPage(1), [q]);
+    if (q) {
+      result = result.filter((s) =>
+        [customerEmail(s.customer_id), priceLabel(s.price_id), s.status].some((f) =>
+          f.toLowerCase().includes(q),
+        )
+      );
+    }
+
+    if (statusFilter !== "all") {
+      result = result.filter((s) => s.status.toLowerCase() === statusFilter.toLowerCase());
+    }
+
+    if (fromDate) {
+      const fromTime = new Date(fromDate).getTime();
+      result = result.filter((s) => new Date(s.created_at).getTime() >= fromTime);
+    }
+
+    if (toDate) {
+      const toTime = new Date(toDate).getTime();
+      result = result.filter((s) => new Date(s.created_at).getTime() <= toTime);
+    }
+
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subs, q, customers, prices, products, statusFilter, fromDate, toDate]);
+
+  useEffect(() => setPage(1), [q, statusFilter, fromDate, toDate]);
+
+  const hasActiveFilters = query || statusFilter !== "all" || fromDate || toDate;
+
+  const clearFilters = () => {
+    setQuery("");
+    setStatusFilter("all");
+    setFromDate("");
+    setToDate("");
+  };
+
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -253,18 +285,64 @@ export default function Subscriptions() {
             All subscriptions
             <span className="count">{filtered.length}</span>
           </h3>
-          {subs.length > 0 && (
+        </div>
+
+        {subs.length > 0 && (
+          <div className="filters-bar">
             <SearchInput
               value={query}
               onChange={setQuery}
               placeholder="Search customer, plan or status…"
             />
-          )}
-        </div>
+            
+            <div className="filters-group">
+              <label htmlFor="status-filter">Status</label>
+              <select
+                id="status-filter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="trialing">Trialing</option>
+                <option value="past_due">Past Due</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="unpaid">Unpaid</option>
+              </select>
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="from-date">From</label>
+              <input
+                id="from-date"
+                type="datetime-local"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="to-date">To</label>
+              <input
+                id="to-date"
+                type="datetime-local"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button className="btn-clear-filters" onClick={clearFilters}>
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+
         {subs.length === 0 ? (
           <div className="empty">No subscriptions yet.</div>
         ) : filtered.length === 0 ? (
-          <div className="empty">No subscriptions match “{query}”.</div>
+          <div className="empty">No subscriptions match the selected filters.</div>
         ) : (
           <table>
             <thead>

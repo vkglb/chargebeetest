@@ -18,19 +18,50 @@ export default function Customers() {
   const [country, setCountry] = useState("US");
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
   const filtered = useMemo(() => {
-    if (!q) return customers;
-    return customers.filter((c) =>
-      [c.email, c.name, c.gateway_customer_ref, countryName(c.country)].some((f) =>
-        f?.toLowerCase().includes(q),
-      ),
-    );
-  }, [customers, q]);
+    let result = customers;
 
-  useEffect(() => setPage(1), [q]);
+    if (q) {
+      result = result.filter((c) =>
+        [c.email, c.name, c.gateway_customer_ref, countryName(c.country)].some((f) =>
+          f?.toLowerCase().includes(q)
+        )
+      );
+    }
+
+    if (countryFilter !== "all") {
+      result = result.filter((c) => c.country?.toLowerCase() === countryFilter.toLowerCase());
+    }
+
+    if (fromDate) {
+      const fromTime = new Date(fromDate).getTime();
+      result = result.filter((c) => new Date(c.created_at).getTime() >= fromTime);
+    }
+
+    if (toDate) {
+      const toTime = new Date(toDate).getTime();
+      result = result.filter((c) => new Date(c.created_at).getTime() <= toTime);
+    }
+
+    return result;
+  }, [customers, q, countryFilter, fromDate, toDate]);
+
+  useEffect(() => setPage(1), [q, countryFilter, fromDate, toDate]);
+
+  const hasActiveFilters = query || countryFilter !== "all" || fromDate || toDate;
+
+  const clearFilters = () => {
+    setQuery("");
+    setCountryFilter("all");
+    setFromDate("");
+    setToDate("");
+  };
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -119,14 +150,60 @@ export default function Customers() {
             All customers
             <span className="count">{filtered.length}</span>
           </h3>
-          {customers.length > 0 && (
-            <SearchInput value={query} onChange={setQuery} placeholder="Search email or name…" />
-          )}
         </div>
+
+        {customers.length > 0 && (
+          <div className="filters-bar">
+            <SearchInput value={query} onChange={setQuery} placeholder="Search email or name…" />
+            
+            <div className="filters-group">
+              <label htmlFor="country-filter">Country</label>
+              <select
+                id="country-filter"
+                value={countryFilter}
+                onChange={(e) => setCountryFilter(e.target.value)}
+              >
+                <option value="all">All Countries</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="from-date">Joined From</label>
+              <input
+                id="from-date"
+                type="datetime-local"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="to-date">To</label>
+              <input
+                id="to-date"
+                type="datetime-local"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button className="btn-clear-filters" onClick={clearFilters}>
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+
         {customers.length === 0 ? (
           <div className="empty">No customers yet.</div>
         ) : filtered.length === 0 ? (
-          <div className="empty">No customers match “{query}”.</div>
+          <div className="empty">No customers match the selected filters.</div>
         ) : (
           <table>
             <thead>
