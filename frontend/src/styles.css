@@ -823,6 +823,14 @@ tbody tr:hover { background: var(--panel-2); }
   display: grid; place-items: center;
   font-size: 30px; font-weight: 800;
 }
+.check-warn {
+  width: 56px; height: 56px; margin: 0 auto 12px;
+  border-radius: 50%;
+  background: rgba(241,196,15,0.15);
+  color: var(--amber);
+  display: grid; place-items: center;
+  font-size: 30px; font-weight: 800;
+}
 
 /* ── Gateways ─────────────────────────────────────────────── */
 .gateway-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }

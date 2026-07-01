@@ -769,6 +769,8 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         save(db);
         return {
           status: "completed",
+          // Paid plans deduct the first payment now; trials just vault the card.
+          payment_status: trial > 0 ? "trial" : "succeeded",
           subscription_id: sub.id,
           redirect_url: sess.success_url,
         } as T;

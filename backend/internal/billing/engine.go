@@ -99,6 +99,22 @@ func (e *Engine) RunForMerchant(ctx context.Context, merchantID uuid.UUID, mode 
 	return sum, nil
 }
 
+// ChargeInitialInvoice bills a subscription immediately, out of the normal
+// scheduler cadence — used to collect the first payment synchronously at hosted
+// checkout. On success it advances next_billing_at to the end of the first
+// period (so the next charge lands one cycle later); on decline it enters the
+// usual dunning flow. The bool reports whether the charge succeeded.
+func (e *Engine) ChargeInitialInvoice(ctx context.Context, merchantID uuid.UUID, subscriptionID uuid.UUID) (bool, error) {
+	sub, err := e.q.GetSubscription(ctx, sqlc.GetSubscriptionParams{
+		ID:         subscriptionID,
+		MerchantID: merchantID,
+	})
+	if err != nil {
+		return false, fmt.Errorf("get subscription: %w", err)
+	}
+	return e.processSubscription(ctx, sub)
+}
+
 // processSubscription bills a single due subscription end-to-end. The bool
 // reports whether the charge succeeded (false = entered dunning).
 func (e *Engine) processSubscription(ctx context.Context, sub sqlc.Subscription) (bool, error) {

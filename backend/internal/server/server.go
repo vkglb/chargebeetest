@@ -28,9 +28,11 @@ type Emitter interface {
 }
 
 // BillingRunner runs a billing pass for one merchant + mode on demand (the
-// manual "run scheduler now" trigger).
+// manual "run scheduler now" trigger) and charges the first invoice inline at
+// checkout.
 type BillingRunner interface {
 	RunForMerchant(ctx context.Context, merchantID uuid.UUID, mode string) (billing.RunSummary, error)
+	ChargeInitialInvoice(ctx context.Context, merchantID uuid.UUID, subscriptionID uuid.UUID) (bool, error)
 }
 
 // WebhookResender re-delivers a past webhook delivery.

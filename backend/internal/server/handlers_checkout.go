@@ -315,8 +315,27 @@ func (s *Server) handleCompleteCheckoutSession(w http.ResponseWriter, r *http.Re
 		"subscription_id": sub.ID, "customer_id": customer.ID, "price_id": session.PriceID, "via": "checkout",
 	})
 
+	// Collect the first payment synchronously (like Chargebee's hosted checkout).
+	// Paid plans deduct now and roll next_billing_at to the end of the period;
+	// trials just keep the vaulted card and bill when the trial ends.
+	paymentStatus := "trial"
+	if price.TrialDays == 0 {
+		succeeded, chargeErr := s.billing.ChargeInitialInvoice(ctx, session.MerchantID, sub.ID)
+		switch {
+		case chargeErr != nil:
+			// The subscription exists; leave it for the scheduler to pick up.
+			s.logger.Error("checkout: initial charge", "error", chargeErr, "subscription_id", sub.ID)
+			paymentStatus = "pending"
+		case succeeded:
+			paymentStatus = "succeeded"
+		default:
+			paymentStatus = "failed" // declined → entered dunning
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":          "completed",
+		"payment_status":  paymentStatus,
 		"subscription_id": sub.ID,
 		"redirect_url":    session.SuccessUrl,
 	})

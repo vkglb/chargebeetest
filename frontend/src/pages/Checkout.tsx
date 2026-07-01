@@ -36,7 +36,7 @@ export default function Checkout() {
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [done, setDone] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -74,16 +74,44 @@ export default function Checkout() {
       </div>
     );
 
-  if (done)
+  if (result) {
+    const screens: Record<string, { icon: string; cls: string; title: string; sub: string }> = {
+      succeeded: {
+        icon: "✓",
+        cls: "check-ok",
+        title: "Payment successful",
+        sub: "Your subscription is active. Redirecting…",
+      },
+      trial: {
+        icon: "✓",
+        cls: "check-ok",
+        title: "Free trial started",
+        sub: "Your card is saved — the first charge is when the trial ends. Redirecting…",
+      },
+      pending: {
+        icon: "…",
+        cls: "check-ok",
+        title: "Payment processing",
+        sub: "We're confirming your first payment. You can safely close this page.",
+      },
+      failed: {
+        icon: "!",
+        cls: "check-warn",
+        title: "Payment declined",
+        sub: "Your subscription was created, but the first charge was declined. We'll retry automatically — or update your card.",
+      },
+    };
+    const r = screens[result] ?? screens.succeeded;
     return (
       <div className="checkout-wrap">
         <div className="checkout-card" style={{ textAlign: "center" }}>
-          <div className="check-ok">✓</div>
-          <h2>Payment successful</h2>
-          <p className="sub">Your subscription is active. Redirecting…</p>
+          <div className={r.cls}>{r.icon}</div>
+          <h2>{r.title}</h2>
+          <p className="sub">{r.sub}</p>
         </div>
       </div>
     );
+  }
 
   const s = session!;
   const period = `${s.interval_count > 1 ? s.interval_count + " " : ""}${s.interval_unit}`;
@@ -119,16 +147,11 @@ export default function Checkout() {
               setup={setup as Extract<SetupInfo, { simulated: false }>}
               session={s}
               total={total}
-              onDone={() => setDone(true)}
+              onDone={setResult}
             />
           </Elements>
         ) : (
-          <DemoForm
-            sessionId={id!}
-            session={s}
-            total={total}
-            onDone={() => setDone(true)}
-          />
+          <DemoForm sessionId={id!} session={s} total={total} onDone={setResult} />
         )}
         <div className="checkout-foot">🔒 Secured · cards vaulted by the payment gateway</div>
       </div>
@@ -140,14 +163,17 @@ export default function Checkout() {
 async function complete(
   sessionId: string,
   body: { email: string; name: string; payment_method_ref: string; gateway_customer_ref?: string },
-  onDone: () => void,
+  onDone: (paymentStatus: string) => void,
 ) {
-  const res = await api.post<{ redirect_url: string }>(
+  const res = await api.post<{ redirect_url: string; payment_status?: string }>(
     `/v1/checkout/sessions/${sessionId}/complete`,
     body,
   );
-  onDone();
-  if (res.redirect_url && /^https?:\/\//.test(res.redirect_url)) {
+  const status = res.payment_status || "succeeded";
+  onDone(status);
+  // Redirect to the merchant's success URL — except on a declined first charge,
+  // where we keep the customer on the result screen.
+  if (status !== "failed" && res.redirect_url && /^https?:\/\//.test(res.redirect_url)) {
     setTimeout(() => (window.location.href = res.redirect_url), 1500);
   }
 }
@@ -169,7 +195,7 @@ function StripeForm({
   setup: Extract<SetupInfo, { simulated: false }>;
   session: CheckoutSessionDetails;
   total: number;
-  onDone: () => void;
+  onDone: (paymentStatus: string) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -247,7 +273,7 @@ function DemoForm({
   sessionId: string;
   session: CheckoutSessionDetails;
   total: number;
-  onDone: () => void;
+  onDone: (paymentStatus: string) => void;
 }) {
   const [email, setEmail] = useState(session.customer_email || "");
   const [name, setName] = useState("");
