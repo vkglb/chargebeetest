@@ -936,6 +936,61 @@ tbody tr:hover { background: var(--panel-2); }
 }
 .modal-close:hover { color: var(--text); }
 
+/* Tall modal: fixed header + footer, a single scrolling region in the middle.
+   Only the events list scrolls; every other control stays put. */
+.modal.modal-tall {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  max-height: 88vh;
+}
+.modal.modal-tall .modal-head {
+  padding: 20px 24px 14px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.wh-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.wh-form-top { padding: 16px 24px 4px; flex: 0 0 auto; }
+.wh-events-scroll {
+  flex: 1 1 auto;
+  min-height: 96px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 24px 8px;
+}
+.wh-form-bottom {
+  padding: 12px 24px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  flex: 0 0 auto;
+}
+.wh-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wh-field-grid label { margin-top: 0; }
+.events-count {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 7px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
 /* Checkbox list (events) */
 .events-head {
   display: flex;

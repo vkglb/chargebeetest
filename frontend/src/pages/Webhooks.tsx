@@ -102,25 +102,32 @@ export default function Webhooks() {
       {error && !open && <div className="error">{error}</div>}
 
       {open && (
-        <Modal title="Add a webhook" onClose={() => setOpen(false)}>
-          <form onSubmit={create}>
-            <label>Endpoint URL</label>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://api.yoursite.com/webhooks/billing"
-              required
-              autoFocus
-            />
+        <Modal title="Add a webhook" onClose={() => setOpen(false)} className="modal-tall">
+          <form onSubmit={create} className="wh-form">
+            {/* Fixed top: endpoint + events header */}
+            <div className="wh-form-top">
+              <label>Endpoint URL</label>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://api.yoursite.com/webhooks/billing"
+                required
+                autoFocus
+              />
 
-            <div className="events-head">
-              <label>Events to send</label>
-              <button type="button" className="link-btn" onClick={toggleAll}>
-                {allSelected ? "Clear all" : "Select all"}
-              </button>
+              <div className="events-head">
+                <label>
+                  Events to send
+                  {events.length > 0 && <span className="events-count">{events.length}</span>}
+                </label>
+                <button type="button" className="link-btn" onClick={toggleAll}>
+                  {allSelected ? "Clear all" : "Select all"}
+                </button>
+              </div>
             </div>
 
-            <div className="check-list">
+            {/* Scroll region: only the events list scrolls */}
+            <div className="check-list wh-events-scroll">
               {EVENT_OPTIONS.map((ev) => (
                 <label className="check-row" key={ev.id}>
                   <input
@@ -136,61 +143,56 @@ export default function Webhooks() {
               ))}
             </div>
 
-            <label style={{ marginTop: 14 }}>Content type</label>
-            <select value={contentType} onChange={(e) => setContentType(e.target.value)}>
-              <option value="application/json">application/json</option>
-              <option value="application/x-www-form-urlencoded">
-                application/x-www-form-urlencoded
-              </option>
-            </select>
+            {/* Fixed bottom: delivery options + actions */}
+            <div className="wh-form-bottom">
+              <div className="wh-field-grid">
+                <div>
+                  <label>Content type</label>
+                  <select value={contentType} onChange={(e) => setContentType(e.target.value)}>
+                    <option value="application/json">application/json</option>
+                    <option value="application/x-www-form-urlencoded">
+                      application/x-www-form-urlencoded
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label>SSL verification</label>
+                  <select
+                    value={verifySsl ? "on" : "off"}
+                    onChange={(e) => setVerifySsl(e.target.value === "on")}
+                  >
+                    <option value="on">Enabled (recommended)</option>
+                    <option value="off">Disabled</option>
+                  </select>
+                </div>
+              </div>
 
-            <label style={{ marginTop: 14 }}>Secret (optional)</label>
-            <input
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="Leave blank to auto-generate a signing secret"
-            />
-            <div className="field-hint">
-              Used to sign every payload with HMAC-SHA256 (sent in the{" "}
-              <span className="mono">X-Webhook-Signature</span> header).
-            </div>
+              <label style={{ marginTop: 12 }}>Secret (optional)</label>
+              <input
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                placeholder="Leave blank to auto-generate a signing secret"
+              />
+              <div className="field-hint">
+                Signs every payload with HMAC-SHA256 (sent in the{" "}
+                <span className="mono">X-Webhook-Signature</span> header).
+              </div>
 
-            <label style={{ marginTop: 14 }}>SSL verification</label>
-            <div className="ssl-options">
-              <label className="ssl-row">
-                <input
-                  type="radio"
-                  name="verify_ssl"
-                  checked={verifySsl}
-                  onChange={() => setVerifySsl(true)}
-                />
-                <span>Enable SSL verification</span>
-              </label>
-              <label className="ssl-row">
-                <input
-                  type="radio"
-                  name="verify_ssl"
-                  checked={!verifySsl}
-                  onChange={() => setVerifySsl(false)}
-                />
-                <span className="ssl-danger">Disable (not recommended)</span>
-              </label>
-            </div>
+              {error && <div className="error">{error}</div>}
 
-            {error && <div className="error">{error}</div>}
-
-            <div className="row" style={{ marginTop: 18, gap: 10 }}>
-              <button className="btn btn-sm" disabled={saving}>
-                {saving ? "Adding…" : `Add webhook (${events.length})`}
-              </button>
-              <button
-                type="button"
-                className="btn-ghost"
-                style={{ width: "auto" }}
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </button>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={{ width: "auto" }}
+                  onClick={() => setOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button className="btn btn-sm" disabled={saving}>
+                  {saving ? "Adding…" : "Add webhook"}
+                </button>
+              </div>
             </div>
           </form>
         </Modal>
