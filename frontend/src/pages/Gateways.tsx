@@ -65,12 +65,17 @@ export default function Gateways() {
 
   async function connect(provider: string) {
     setError("");
+    const g = CATALOG.find((x) => x.provider === provider);
+    if (!secretKey.trim()) {
+      setError(`${g?.name ?? "Gateway"} requires a secret credential to connect.`);
+      return;
+    }
     try {
       await api.post("/v1/gateways", {
         provider,
         account_ref: accountRef,
-        secret_key: secretKey || "sk_demo_placeholder",
-        publishable_key: publishableKey,
+        secret_key: secretKey.trim(),
+        publishable_key: publishableKey.trim(),
       });
       setConnecting(null);
       setAccountRef("");
