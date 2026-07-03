@@ -243,6 +243,7 @@ type UserMetadatum struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	TwoFactorEnabled bool               `json:"two_factor_enabled"`
+	TwoFactorSecret  string             `json:"two_factor_secret"`
 }
 
 type WebhookDelivery struct {

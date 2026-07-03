@@ -13,8 +13,31 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const disableTwoFactor = `-- name: DisableTwoFactor :exec
+INSERT INTO user_metadata (user_id, two_factor_secret, two_factor_enabled)
+VALUES ($1, '', false)
+ON CONFLICT (user_id)
+DO UPDATE SET two_factor_secret = '', two_factor_enabled = false, updated_at = now()
+`
+
+func (q *Queries) DisableTwoFactor(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, disableTwoFactor, userID)
+	return err
+}
+
+const enableTwoFactor = `-- name: EnableTwoFactor :exec
+UPDATE user_metadata
+SET two_factor_enabled = true, updated_at = now()
+WHERE user_id = $1
+`
+
+func (q *Queries) EnableTwoFactor(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, enableTwoFactor, userID)
+	return err
+}
+
 const getUserMetadata = `-- name: GetUserMetadata :one
-SELECT user_id, tour_completed_at, two_factor_enabled, created_at, updated_at
+SELECT user_id, tour_completed_at, two_factor_enabled, two_factor_secret, created_at, updated_at
 FROM user_metadata
 WHERE user_id = $1
 `
@@ -23,6 +46,7 @@ type GetUserMetadataRow struct {
 	UserID           uuid.UUID          `json:"user_id"`
 	TourCompletedAt  *time.Time         `json:"tour_completed_at"`
 	TwoFactorEnabled bool               `json:"two_factor_enabled"`
+	TwoFactorSecret  string             `json:"two_factor_secret"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
@@ -34,6 +58,7 @@ func (q *Queries) GetUserMetadata(ctx context.Context, userID uuid.UUID) (GetUse
 		&i.UserID,
 		&i.TourCompletedAt,
 		&i.TwoFactorEnabled,
+		&i.TwoFactorSecret,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -49,6 +74,24 @@ DO UPDATE SET tour_completed_at = now(), updated_at = now()
 
 func (q *Queries) MarkTourCompleted(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markTourCompleted, userID)
+	return err
+}
+
+const setTwoFactorSecret = `-- name: SetTwoFactorSecret :exec
+INSERT INTO user_metadata (user_id, two_factor_secret, two_factor_enabled)
+VALUES ($1, $2, false)
+ON CONFLICT (user_id)
+DO UPDATE SET two_factor_secret = $2, two_factor_enabled = false, updated_at = now()
+`
+
+type SetTwoFactorSecretParams struct {
+	UserID          uuid.UUID `json:"user_id"`
+	TwoFactorSecret string    `json:"two_factor_secret"`
+}
+
+// Store a pending TOTP secret during setup (not yet enabled until confirmed).
+func (q *Queries) SetTwoFactorSecret(ctx context.Context, arg SetTwoFactorSecretParams) error {
+	_, err := q.db.Exec(ctx, setTwoFactorSecret, arg.UserID, arg.TwoFactorSecret)
 	return err
 }
 

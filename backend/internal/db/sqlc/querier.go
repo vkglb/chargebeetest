@@ -53,6 +53,8 @@ type Querier interface {
 	// Disconnect a gateway for a merchant + mode (removes the stored credentials).
 	DeleteGatewayAccount(ctx context.Context, arg DeleteGatewayAccountParams) (int64, error)
 	DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error
+	DisableTwoFactor(ctx context.Context, userID uuid.UUID) error
+	EnableTwoFactor(ctx context.Context, userID uuid.UUID) error
 	GetAPIKeyByPrefix(ctx context.Context, prefix string) (ApiKey, error)
 	GetCheckoutSession(ctx context.Context, id uuid.UUID) (CheckoutSession, error)
 	// Joined view for the public hosted page: session + plan + merchant + product.
@@ -63,6 +65,7 @@ type Querier interface {
 	GetGatewayAccount(ctx context.Context, arg GetGatewayAccountParams) (GatewayAccount, error)
 	GetMerchant(ctx context.Context, id uuid.UUID) (Merchant, error)
 	GetMerchantUserByEmail(ctx context.Context, email string) (MerchantUser, error)
+	GetMerchantUserByID(ctx context.Context, id uuid.UUID) (MerchantUser, error)
 	GetPaymentMethod(ctx context.Context, id uuid.UUID) (PaymentMethod, error)
 	GetPrice(ctx context.Context, arg GetPriceParams) (Price, error)
 	// The merchant's active gateway used for charging, for a given mode.
@@ -131,6 +134,8 @@ type Querier interface {
 	// time, so the scheduler waits instead of re-charging every tick.
 	SetSubscriptionRetry(ctx context.Context, arg SetSubscriptionRetryParams) (Subscription, error)
 	SetSubscriptionStatus(ctx context.Context, arg SetSubscriptionStatusParams) (Subscription, error)
+	// Store a pending TOTP secret during setup (not yet enabled until confirmed).
+	SetTwoFactorSecret(ctx context.Context, arg SetTwoFactorSecretParams) error
 	SubscriptionStatusBreakdown(ctx context.Context, arg SubscriptionStatusBreakdownParams) ([]SubscriptionStatusBreakdownRow, error)
 	SubscriptionsByDay(ctx context.Context, arg SubscriptionsByDayParams) ([]SubscriptionsByDayRow, error)
 	TotalRevenue(ctx context.Context, arg TotalRevenueParams) (int64, error)

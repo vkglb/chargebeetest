@@ -154,6 +154,25 @@ func (q *Queries) GetMerchantUserByEmail(ctx context.Context, email string) (Mer
 	return i, err
 }
 
+const getMerchantUserByID = `-- name: GetMerchantUserByID :one
+SELECT id, merchant_id, email, password_hash, role, created_at FROM merchant_users
+WHERE id = $1
+`
+
+func (q *Queries) GetMerchantUserByID(ctx context.Context, id uuid.UUID) (MerchantUser, error) {
+	row := q.db.QueryRow(ctx, getMerchantUserByID, id)
+	var i MerchantUser
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listAPIKeysByMerchant = `-- name: ListAPIKeysByMerchant :many
 SELECT id, merchant_id, prefix, scopes, last_used_at, revoked_at, created_at
 FROM api_keys

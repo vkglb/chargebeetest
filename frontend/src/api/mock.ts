@@ -341,12 +341,25 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
       localStorage.setItem("chargeebee_tour_done", "1");
       return undefined as T;
 
-    case "POST /v1/me/2fa":
-      if (body?.enabled) {
-        localStorage.setItem("chargeebee_2fa_enabled", "true");
-      } else {
-        localStorage.removeItem("chargeebee_2fa_enabled");
-      }
+    case "POST /v1/me/2fa/setup": {
+      // Demo secret + a real otpauth URL so the QR renders and is scannable.
+      const secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
+      const otpauth =
+        "otpauth://totp/" +
+        encodeURIComponent("Chargeebee Billing:demo@chargeebee.test") +
+        `?secret=${secret}&issuer=Chargeebee+Billing&algorithm=SHA1&digits=6&period=30`;
+      return { secret, otpauth_url: otpauth } as T;
+    }
+    case "POST /v1/me/2fa/enable":
+      // Demo mode can't compute TOTP; accept any 6-digit code.
+      if (!/^\d{6}$/.test(String(body?.code ?? ""))) throw new Error("invalid code");
+      localStorage.setItem("chargeebee_2fa_enabled", "true");
+      return { enabled: true } as T;
+    case "POST /v1/me/2fa/verify":
+      if (!/^\d{6}$/.test(String(body?.code ?? ""))) throw new Error("invalid verification code");
+      return { verified: true } as T;
+    case "POST /v1/me/2fa/disable":
+      localStorage.removeItem("chargeebee_2fa_enabled");
       return undefined as T;
 
     case "POST /v1/dev/seed": {

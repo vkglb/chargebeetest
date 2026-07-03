@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	sqlc "github.com/chargeebee/platform/internal/db/sqlc"
+	"github.com/chargeebee/platform/internal/twofa"
 )
 
 // meResponse is the authenticated dashboard user's onboarding state. It backs
@@ -50,23 +51,85 @@ func (s *Server) handleCompleteTour(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-type update2FARequest struct {
-	Enabled bool `json:"enabled"`
+// handle2FASetup starts TOTP enrollment: it mints a fresh secret, stores it as
+// pending (not yet enabled), and returns the secret plus an otpauth:// URL the
+// dashboard renders as a QR code for the user's authenticator app.
+func (s *Server) handle2FASetup(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	secret, err := twofa.GenerateSecret()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not generate secret")
+		return
+	}
+	if err := s.q.SetTwoFactorSecret(r.Context(), sqlc.SetTwoFactorSecretParams{
+		UserID:          uid,
+		TwoFactorSecret: secret,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not start 2fa setup")
+		return
+	}
+
+	account := uid.String()
+	if user, err := s.q.GetMerchantUserByID(r.Context(), uid); err == nil {
+		account = user.Email
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"secret":      secret,
+		"otpauth_url": twofa.OTPAuthURL(secret, account, "Chargeebee Billing"),
+	})
 }
 
-// handleUpdate2FA sets whether Two-Factor Authentication is enabled for the user.
-func (s *Server) handleUpdate2FA(w http.ResponseWriter, r *http.Request) {
-	var req update2FARequest
+type twoFACodeRequest struct {
+	Code string `json:"code"`
+}
+
+// handle2FAEnable confirms enrollment: it verifies a code against the pending
+// secret and, on success, turns 2FA on.
+func (s *Server) handle2FAEnable(w http.ResponseWriter, r *http.Request) {
+	var req twoFACodeRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	meta, err := s.q.GetUserMetadata(r.Context(), userID(r))
+	if err != nil || meta.TwoFactorSecret == "" {
+		writeError(w, http.StatusBadRequest, "start 2fa setup first")
+		return
+	}
+	if !twofa.Validate(meta.TwoFactorSecret, req.Code) {
+		writeError(w, http.StatusBadRequest, "that code is not valid — check your authenticator app")
+		return
+	}
+	if err := s.q.EnableTwoFactor(r.Context(), userID(r)); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not enable 2fa")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"enabled": true})
+}
 
-	if err := s.q.UpdateTwoFactor(r.Context(), sqlc.UpdateTwoFactorParams{
-		UserID:           userID(r),
-		TwoFactorEnabled: req.Enabled,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not save 2fa state")
+// handle2FAVerify checks a login-time code against the user's enabled secret.
+func (s *Server) handle2FAVerify(w http.ResponseWriter, r *http.Request) {
+	var req twoFACodeRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	meta, err := s.q.GetUserMetadata(r.Context(), userID(r))
+	if err != nil || !meta.TwoFactorEnabled || meta.TwoFactorSecret == "" {
+		writeError(w, http.StatusBadRequest, "2fa is not enabled")
+		return
+	}
+	if !twofa.Validate(meta.TwoFactorSecret, req.Code) {
+		writeError(w, http.StatusUnauthorized, "invalid verification code")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"verified": true})
+}
+
+// handle2FADisable turns 2FA off and clears the stored secret.
+func (s *Server) handle2FADisable(w http.ResponseWriter, r *http.Request) {
+	if err := s.q.DisableTwoFactor(r.Context(), userID(r)); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not disable 2fa")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

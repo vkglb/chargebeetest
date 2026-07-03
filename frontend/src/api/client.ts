@@ -109,6 +109,13 @@ export interface Me {
   two_factor_enabled?: boolean;
 }
 
+// TOTP enrollment payload: the shared secret plus the otpauth:// URL rendered
+// as a QR code for the authenticator app.
+export interface TwoFactorSetup {
+  secret: string;
+  otpauth_url: string;
+}
+
 export interface Product {
   id: string;
   merchant_id: string;

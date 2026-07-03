@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "../auth/AuthContext";
 import { resetTour } from "../components/Tour";
-import { api, getMode } from "../api/client";
+import { api, getMode, type TwoFactorSetup } from "../api/client";
 import Modal from "../components/Modal";
 
 // Settings persist locally in demo mode. In real mode these map to backend
@@ -46,8 +47,56 @@ export default function Settings() {
   const [otp, setOtp] = useState("");
   const [error2fa, setError2fa] = useState("");
   const [copied, setCopied] = useState(false);
-  
-  const secretKey = "JBSW Y3DP EHPK 3PXP";
+  const [setup2fa, setSetup2fa] = useState<TwoFactorSetup | null>(null);
+  const [busy2fa, setBusy2fa] = useState(false);
+
+  const prettySecret = (k: string) => (k.match(/.{1,4}/g) ?? [k]).join(" ");
+
+  async function startEnable() {
+    setOtp("");
+    setError2fa("");
+    setBusy2fa(true);
+    try {
+      const s = await api.post<TwoFactorSetup>("/v1/me/2fa/setup");
+      setSetup2fa(s);
+      setShow2faSetup(true);
+    } catch (e) {
+      setError2fa("Could not start 2FA setup: " + (e as Error).message);
+    } finally {
+      setBusy2fa(false);
+    }
+  }
+
+  async function confirmEnable() {
+    if (!/^\d{6}$/.test(otp)) {
+      setError2fa("Please enter a valid 6-digit code.");
+      return;
+    }
+    setBusy2fa(true);
+    try {
+      await api.post("/v1/me/2fa/enable", { code: otp });
+      localStorage.setItem("chargeebee_2fa_enabled", "true");
+      setIs2faEnabled(true);
+      setShow2faSetup(false);
+    } catch (e) {
+      setError2fa((e as Error).message);
+    } finally {
+      setBusy2fa(false);
+    }
+  }
+
+  async function disable2fa() {
+    setBusy2fa(true);
+    try {
+      await api.post("/v1/me/2fa/disable");
+      localStorage.removeItem("chargeebee_2fa_enabled");
+      setIs2faEnabled(false);
+    } catch (e) {
+      setError2fa("Failed to disable 2FA: " + (e as Error).message);
+    } finally {
+      setBusy2fa(false);
+    }
+  }
 
   async function loadSample() {
     setSeeding(true);
@@ -145,96 +194,52 @@ export default function Settings() {
             <button
               className="btn btn-sm btn-danger"
               style={{ width: "auto" }}
-              onClick={async () => {
-                try {
-                  await api.post("/v1/me/2fa", { enabled: false });
-                  localStorage.removeItem("chargeebee_2fa_enabled");
-                  setIs2faEnabled(false);
-                } catch (e) {
-                  setError2fa("Failed to disable 2FA: " + (e as Error).message);
-                }
-              }}
+              disabled={busy2fa}
+              onClick={disable2fa}
             >
               Disable 2FA
             </button>
           ) : (
-            <button
-              className="btn btn-sm"
-              style={{ width: "auto" }}
-              onClick={() => {
-                setOtp("");
-                setError2fa("");
-                setShow2faSetup(true);
-              }}
-            >
-              Enable 2FA
+            <button className="btn btn-sm" style={{ width: "auto" }} disabled={busy2fa} onClick={startEnable}>
+              {busy2fa ? "Preparing…" : "Enable 2FA"}
             </button>
           )}
         </div>
+        {error2fa && !show2faSetup && <div className="error" style={{ marginTop: 10 }}>{error2fa}</div>}
       </div>
 
-      {show2faSetup && (
-        <Modal
-          title="Enable 2-Step Verification"
-          onClose={() => setShow2faSetup(false)}
-        >
-          <div style={{ maxWidth: "400px" }}>
-            <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 16 }}>
-              Scan the QR code or enter the secret key manually into your authenticator app (like Google Authenticator).
+      {show2faSetup && setup2fa && (
+        <Modal title="Enable two-step verification" onClose={() => setShow2faSetup(false)}>
+          <div className="tfa-modal">
+            <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 0 }}>
+              Scan the QR code with your authenticator app, or enter the key manually.
             </p>
 
-            <div style={{ textAlign: "center", marginBottom: 16 }}>
-              <svg
-                width="120"
-                height="120"
-                viewBox="0 0 100 100"
-                style={{
-                  background: "#ffffff",
-                  padding: 8,
-                  borderRadius: 8,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            <div className="tfa-qr" style={{ margin: "0 auto 16px" }}>
+              <QRCodeSVG value={setup2fa.otpauth_url} size={168} marginSize={2} />
+            </div>
+
+            <div className="tfa-key" style={{ marginBottom: 16 }}>
+              <span className="mono">{prettySecret(setup2fa.secret)}</span>
+              <button
+                type="button"
+                className="btn-ghost btn-sm tfa-copy"
+                onClick={() => {
+                  navigator.clipboard.writeText(setup2fa.secret);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
                 }}
               >
-                <path d="M10,10 h25 v10 h-15 v15 h-10 z" fill="#111827" />
-                <path d="M65,10 h25 v25 h-10 v-15 h-15 z" fill="#111827" />
-                <path d="M10,65 h10 v15 h15 v10 h-25 z" fill="#111827" />
-                <rect x="20" y="20" width="10" height="10" fill="#111827" />
-                <rect x="70" y="20" width="10" height="10" fill="#111827" />
-                <rect x="20" y="70" width="10" height="10" fill="#111827" />
-                <rect x="40" y="20" width="10" height="5" fill="#111827" />
-                <rect x="50" y="25" width="10" height="10" fill="#111827" />
-                <rect x="35" y="40" width="15" height="15" fill="#111827" />
-                <rect x="60" y="45" width="10" height="15" fill="#111827" />
-                <rect x="20" y="45" width="10" height="10" fill="#111827" />
-                <rect x="40" y="70" width="20" height="10" fill="#111827" />
-                <rect x="70" y="65" width="10" height="15" fill="#111827" />
-              </svg>
+                {copied ? "Copied" : "Copy"}
+              </button>
             </div>
 
-            <div style={{ background: "var(--panel-2)", padding: 10, borderRadius: 8, border: "1px solid var(--border)", marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: "var(--muted)" }}>Manual entry key:</div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                <span className="mono" style={{ fontSize: 13, fontWeight: "bold", letterSpacing: 1, color: "var(--text)" }}>
-                  {secretKey}
-                </span>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(secretKey);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  style={{ width: "auto", padding: "3px 6px", fontSize: 10 }}
-                >
-                  {copied ? "Copied!" : "Copy"}
-                </button>
-              </div>
-            </div>
-
-            <label htmlFor="otp-input-modal" style={{ fontWeight: 600 }}>Enter 6-digit Code</label>
+            <label htmlFor="otp-input-modal" className="tfa-code-label">
+              Enter the 6-digit code
+            </label>
             <input
               id="otp-input-modal"
+              className="tfa-code"
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
@@ -242,36 +247,16 @@ export default function Settings() {
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
               placeholder="000000"
-              style={{ textAlign: "center", fontSize: 18, letterSpacing: 3, fontWeight: "bold" }}
             />
 
-            {error2fa && <div className="error" style={{ textAlign: "center" }}>{error2fa}</div>}
+            {error2fa && <div className="error">{error2fa}</div>}
 
-            <div className="row" style={{ marginTop: 20 }}>
-              <button
-                className="btn btn-sm"
-                onClick={async () => {
-                  if (!/^\d{6}$/.test(otp)) {
-                    setError2fa("Please enter a valid 6-digit code.");
-                    return;
-                  }
-                  try {
-                    await api.post("/v1/me/2fa", { enabled: true });
-                    localStorage.setItem("chargeebee_2fa_enabled", "true");
-                    setIs2faEnabled(true);
-                    setShow2faSetup(false);
-                  } catch (e) {
-                    setError2fa("Failed to enable 2FA: " + (e as Error).message);
-                  }
-                }}
-              >
-                Verify & Enable
-              </button>
-              <button
-                className="btn-ghost btn-sm"
-                onClick={() => setShow2faSetup(false)}
-              >
+            <div className="modal-actions">
+              <button className="btn-ghost btn-sm" style={{ width: "auto" }} onClick={() => setShow2faSetup(false)}>
                 Cancel
+              </button>
+              <button className="btn btn-sm" disabled={busy2fa} onClick={confirmEnable}>
+                {busy2fa ? "Verifying…" : "Verify & enable"}
               </button>
             </div>
           </div>

@@ -7,6 +7,10 @@ RETURNING *;
 SELECT * FROM merchant_users
 WHERE email = $1;
 
+-- name: GetMerchantUserByID :one
+SELECT * FROM merchant_users
+WHERE id = $1;
+
 -- name: CreateAPIKey :one
 INSERT INTO api_keys (merchant_id, prefix, key_hash, scopes)
 VALUES ($1, $2, $3, $4)
