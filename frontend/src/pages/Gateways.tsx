@@ -79,6 +79,7 @@ export default function Gateways() {
     setAccountRef("");
     setSecretKey("");
     setPublishableKey("");
+    setError("");
     setConnecting(provider);
   }
 
@@ -156,7 +157,7 @@ export default function Gateways() {
         </div>
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {error && !connecting && <div className="error">{error}</div>}
 
       <div className="gateway-grid">
         {CATALOG.map((g) => {
@@ -246,7 +247,10 @@ export default function Gateways() {
           <Modal
             title={`${acct ? "Update" : "Connect"} ${g.name}`}
             onClose={() => {
-              if (isSaving === null) setConnecting(null);
+              if (isSaving === null) {
+                setConnecting(null);
+                setError("");
+              }
             }}
           >
             <div className="gateway-form">
@@ -274,11 +278,12 @@ export default function Gateways() {
                     placeholder={g.pubLabel}
                     disabled={isSaving !== null}
                   />
-                  <div className="gateway-hint" style={{ marginTop: 10 }}>
+                  <div className="gateway-hint" style={{ marginTop: 10, marginBottom: 10 }}>
                     Test keys only — real cards vault &amp; dunning runs through Stripe test mode.
                   </div>
                 </>
               )}
+              {error && <div className="error" style={{ marginTop: 10, marginBottom: 10 }}>{error}</div>}
               <div className="row" style={{ marginTop: 20 }}>
                 <button
                   className="btn btn-sm"
@@ -295,7 +300,10 @@ export default function Gateways() {
                 </button>
                 <button
                   className="btn-ghost"
-                  onClick={() => setConnecting(null)}
+                  onClick={() => {
+                    setConnecting(null);
+                    setError("");
+                  }}
                   disabled={isSaving !== null}
                 >
                   Cancel
