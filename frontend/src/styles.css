@@ -67,12 +67,10 @@ h1, h2, h3 { letter-spacing: -0.02em; font-weight: 650; }
 
 /* ── Two-factor (TOTP) enrollment & verification ─────────────── */
 .tfa-card { max-width: 440px; }
-.tfa-icon {
-  width: 52px; height: 52px; border-radius: 14px;
-  display: grid; place-items: center; font-size: 24px; line-height: 1;
-  background: rgba(108,92,231,0.14); border: 1px solid rgba(108,92,231,0.28);
-  margin-bottom: 16px;
-}
+.tfa-head { text-align: center; margin-bottom: 4px; }
+.tfa-head h1 { margin-top: 0; }
+.tfa-icon { display: flex; justify-content: center; margin-bottom: 14px; }
+.shield-icon { filter: drop-shadow(0 6px 14px rgba(47,107,214,0.4)); }
 /* Each step: an inline-numbered title, then full-width content below. */
 .tfa-step { margin-top: 22px; }
 .tfa-step:first-of-type { margin-top: 24px; }

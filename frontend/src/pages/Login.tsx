@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "../auth/AuthContext";
 import { api, ApiError, type Me, type TwoFactorSetup } from "../api/client";
 import OtpInput from "../components/OtpInput";
+import ShieldIcon from "../components/ShieldIcon";
 
 type Step = "login" | "setup" | "verify";
 
@@ -109,12 +110,16 @@ export default function Login() {
     return (
       <div className="auth-wrap">
         <div className="auth-card tfa-card">
-          <div className="tfa-icon">🛡️</div>
-          <h1>Protect your account</h1>
-          <p className="sub">
-            Add two-step verification with an authenticator app (Google Authenticator,
-            Authy, 1Password…).
-          </p>
+          <div className="tfa-head">
+            <div className="tfa-icon">
+              <ShieldIcon />
+            </div>
+            <h1>Protect your account</h1>
+            <p className="sub">
+              Add two-step verification with an authenticator app (Google Authenticator,
+              Authy, 1Password…).
+            </p>
+          </div>
 
           <div className="tfa-step">
             <div className="tfa-step-head">
@@ -157,9 +162,13 @@ export default function Login() {
     return (
       <div className="auth-wrap">
         <div className="auth-card tfa-card">
-          <div className="tfa-icon">🔐</div>
-          <h1>Two-step verification</h1>
-          <p className="sub">Enter the code from your authenticator app to continue.</p>
+          <div className="tfa-head">
+            <div className="tfa-icon">
+              <ShieldIcon />
+            </div>
+            <h1>Two-step verification</h1>
+            <p className="sub">Enter the code from your authenticator app to continue.</p>
+          </div>
           {otpField(onVerify, "Verify")}
           <button
             type="button"
