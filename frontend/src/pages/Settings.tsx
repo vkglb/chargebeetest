@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import OtpInput from "../components/OtpInput";
 import { useAuth } from "../auth/AuthContext";
 import { resetTour } from "../components/Tour";
 import { api, getMode, type TwoFactorSetup } from "../api/client";
@@ -234,20 +235,8 @@ export default function Settings() {
               </button>
             </div>
 
-            <label htmlFor="otp-input-modal" className="tfa-code-label">
-              Enter the 6-digit code
-            </label>
-            <input
-              id="otp-input-modal"
-              className="tfa-code"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-              placeholder="000000"
-            />
+            <div className="otp-caption">Enter the 6-digit code</div>
+            <OtpInput value={otp} onChange={setOtp} />
 
             {error2fa && <div className="error">{error2fa}</div>}
 

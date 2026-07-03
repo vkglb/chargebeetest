@@ -96,12 +96,22 @@ h1, h2, h3 { letter-spacing: -0.02em; font-weight: 650; }
 }
 .tfa-key .mono { font-size: 13px; font-weight: 600; letter-spacing: 1px; color: var(--text); word-break: break-all; }
 .tfa-copy { width: auto; flex: 0 0 auto; padding: 4px 10px; font-size: 11px; align-self: stretch; }
-.tfa-step .tfa-code-label { display: none; } /* the step title already labels it */
-.tfa-code-label { font-weight: 600; }
-.tfa-code {
-  text-align: center; font-size: 22px; letter-spacing: 10px; text-indent: 10px;
-  font-weight: 700; font-family: var(--mono, monospace);
+.otp-caption {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--muted); font-weight: 600; margin-bottom: 10px;
 }
+.otp-boxes { display: flex; gap: 8px; }
+.otp-box {
+  flex: 1 1 0; min-width: 0; width: auto; height: 52px; margin: 0; padding: 0;
+  text-align: center; font-size: 22px; font-weight: 700;
+  font-family: var(--mono, monospace); color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+}
+.otp-box:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(108,92,231,0.25);
+}
+.tfa-submit { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .tfa-skip {
   display: block; margin: 20px auto 0; text-align: center;
   font-size: 13px; text-decoration: none;

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "../auth/AuthContext";
 import { api, ApiError, type Me, type TwoFactorSetup } from "../api/client";
+import OtpInput from "../components/OtpInput";
 
 type Step = "login" | "setup" | "verify";
 
@@ -90,26 +91,15 @@ export default function Login() {
 
   const otpField = (onSubmitHandler: (e: React.FormEvent) => void, cta: string) => (
     <form onSubmit={onSubmitHandler}>
-      <label htmlFor="otp-input" className="tfa-code-label">
-        6-digit code
-      </label>
-      <input
-        id="otp-input"
-        className="tfa-code"
-        type="text"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        pattern="[0-9]*"
-        maxLength={6}
-        value={otp}
-        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-        placeholder="000000"
-        required
-        autoFocus
-      />
+      <div className="otp-caption">6-digit code</div>
+      <OtpInput value={otp} onChange={setOtp} autoFocus />
       {error && <div className="error">{error}</div>}
-      <button className="btn" disabled={loading}>
-        {loading ? "Verifying…" : cta}
+      <button className="btn tfa-submit" disabled={loading}>
+        {loading ? "Verifying…" : (
+          <>
+            {cta} <span aria-hidden="true">→</span>
+          </>
+        )}
       </button>
     </form>
   );
