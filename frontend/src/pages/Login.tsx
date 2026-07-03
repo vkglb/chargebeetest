@@ -32,22 +32,28 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    // 1) Authenticate. Retry once on a network error, since the first request
-    //    to a cold free-tier backend can fail while it wakes up.
+    // 1) Authenticate. A cold free-tier backend can take ~30s to wake, and its
+    //    502 during wake-up surfaces as a network error — so retry with backoff
+    //    (~35s total). A real auth error (ApiError) stops immediately.
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const backoffs = [0, 3000, 5000, 8000, 12000, 15000];
     try {
-      try {
-        await login(email, password);
-      } catch (err) {
-        if (err instanceof ApiError) throw err;
-        setError("Waking up the server… one moment.");
-        await new Promise((r) => setTimeout(r, 4000));
-        await login(email, password);
+      for (let i = 0; i < backoffs.length; i++) {
+        if (backoffs[i]) await sleep(backoffs[i]);
+        try {
+          await login(email, password);
+          break;
+        } catch (err) {
+          if (err instanceof ApiError) throw err;
+          if (i === backoffs.length - 1) throw new Error("network");
+          setError("Waking up the server (free tier) — this can take up to a minute…");
+        }
       }
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.status === 401 ? "Incorrect email or password." : err.message);
       } else {
-        setError("Couldn't reach the server — please try again in a moment.");
+        setError("Couldn't reach the server. It may be asleep — wait a moment and try again.");
       }
       setLoading(false);
       return;
