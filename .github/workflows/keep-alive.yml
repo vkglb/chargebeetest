@@ -1,0 +1,30 @@
+# Keeps the Render free-tier backend warm so cold starts don't stall logins.
+# Render spins a free service down after ~15 min of inactivity; pinging its
+# health endpoint every ~10 min keeps it awake. (GitHub's scheduler can run a
+# few minutes late, so the retry loop below also tolerates a cold wake-up.)
+name: Keep backend warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes
+  workflow_dispatch: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /healthz
+        run: |
+          URL="https://chargebeetest.onrender.com/healthz"
+          for i in 1 2 3; do
+            code=$(curl -s -m 60 -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+            echo "attempt $i -> HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 20  # give a cold service time to finish waking
+          done
+          echo "::warning::backend did not return 200 after 3 attempts"
+          exit 1
