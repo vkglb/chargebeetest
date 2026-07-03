@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "../auth/AuthContext";
@@ -20,23 +20,39 @@ export default function Login() {
   const [copied, setCopied] = useState(false);
   const [setup, setSetup] = useState<TwoFactorSetup | null>(null);
 
+  // Warm the backend on page load. Render's free tier spins the service down
+  // after inactivity; kicking it awake while the user types means it's usually
+  // ready by the time they submit.
+  useEffect(() => {
+    api.get("/healthz").catch(() => {});
+  }, []);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    // 1) Authenticate. Only credential/connection errors surface here.
+    // 1) Authenticate. Retry once on a network error, since the first request
+    //    to a cold free-tier backend can fail while it wakes up.
     try {
-      await login(email, password);
+      try {
+        await login(email, password);
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+        setError("Waking up the server… one moment.");
+        await new Promise((r) => setTimeout(r, 4000));
+        await login(email, password);
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.status === 401 ? "Incorrect email or password." : err.message);
       } else {
-        setError("Couldn't reach the server — please try again.");
+        setError("Couldn't reach the server — please try again in a moment.");
       }
       setLoading(false);
       return;
     }
+    setError("");
 
     // 2) Signed in. Pick the 2FA step — but never let this block sign-in: if
     //    the 2FA endpoints are unavailable, continue to the dashboard.
