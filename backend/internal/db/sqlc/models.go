@@ -238,10 +238,11 @@ type Transaction struct {
 }
 
 type UserMetadatum struct {
-	UserID          uuid.UUID          `json:"user_id"`
-	TourCompletedAt *time.Time         `json:"tour_completed_at"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	UserID           uuid.UUID          `json:"user_id"`
+	TourCompletedAt  *time.Time         `json:"tour_completed_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	TwoFactorEnabled bool               `json:"two_factor_enabled"`
 }
 
 type WebhookDelivery struct {

@@ -125,6 +125,7 @@ func (s *Server) routes() {
 
 			r.Get("/me", s.handleGetMe)
 			r.Post("/me/tour/complete", s.handleCompleteTour)
+			r.Post("/me/2fa", s.handleUpdate2FA)
 
 			r.Get("/sites", s.handleListSites)
 			r.Get("/analytics", s.handleAnalytics)

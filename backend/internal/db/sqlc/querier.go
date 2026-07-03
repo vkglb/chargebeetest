@@ -68,7 +68,7 @@ type Querier interface {
 	// The merchant's active gateway used for charging, for a given mode.
 	GetPrimaryGatewayAccount(ctx context.Context, arg GetPrimaryGatewayAccountParams) (GatewayAccount, error)
 	GetSubscription(ctx context.Context, arg GetSubscriptionParams) (Subscription, error)
-	GetUserMetadata(ctx context.Context, userID uuid.UUID) (UserMetadatum, error)
+	GetUserMetadata(ctx context.Context, userID uuid.UUID) (GetUserMetadataRow, error)
 	GetWebhookDelivery(ctx context.Context, arg GetWebhookDeliveryParams) (WebhookDelivery, error)
 	GetWebhookEndpoint(ctx context.Context, arg GetWebhookEndpointParams) (WebhookEndpoint, error)
 	// Record the outcome of a billing pass for the run-history chart.
@@ -136,6 +136,7 @@ type Querier interface {
 	TotalRevenue(ctx context.Context, arg TotalRevenueParams) (int64, error)
 	TouchAPIKey(ctx context.Context, id uuid.UUID) error
 	UpdateMerchantStatus(ctx context.Context, arg UpdateMerchantStatusParams) (Merchant, error)
+	UpdateTwoFactor(ctx context.Context, arg UpdateTwoFactorParams) error
 	UpdateWebhookDeliveryResult(ctx context.Context, arg UpdateWebhookDeliveryResultParams) (WebhookDelivery, error)
 	UpsertGatewayAccount(ctx context.Context, arg UpsertGatewayAccountParams) (UpsertGatewayAccountRow, error)
 }

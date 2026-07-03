@@ -91,7 +91,14 @@ export default function Layout() {
     }
     api
       .get<Me>("/v1/me")
-      .then((me) => setShowTour(!me.tour_completed))
+      .then((me) => {
+        setShowTour(!me.tour_completed);
+        if (me.two_factor_enabled) {
+          localStorage.setItem("chargeebee_2fa_enabled", "true");
+        } else {
+          localStorage.removeItem("chargeebee_2fa_enabled");
+        }
+      })
       .catch(() => setShowTour(!tourDone()));
   }, [isGuest]);
 

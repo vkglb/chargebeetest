@@ -106,6 +106,7 @@ export interface Me {
   user_id: string;
   merchant_id: string;
   tour_completed: boolean;
+  two_factor_enabled?: boolean;
 }
 
 export interface Product {

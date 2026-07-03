@@ -334,10 +334,19 @@ export async function mockRequest<T>(method: string, path: string, body?: any): 
         user_id: "demo-user-0000",
         merchant_id: MERCHANT,
         tour_completed: localStorage.getItem("chargeebee_tour_done") === "1",
+        two_factor_enabled: localStorage.getItem("chargeebee_2fa_enabled") === "true",
       } as T;
 
     case "POST /v1/me/tour/complete":
       localStorage.setItem("chargeebee_tour_done", "1");
+      return undefined as T;
+
+    case "POST /v1/me/2fa":
+      if (body?.enabled) {
+        localStorage.setItem("chargeebee_2fa_enabled", "true");
+      } else {
+        localStorage.removeItem("chargeebee_2fa_enabled");
+      }
       return undefined as T;
 
     case "POST /v1/dev/seed": {

@@ -7,22 +7,33 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getUserMetadata = `-- name: GetUserMetadata :one
-SELECT user_id, tour_completed_at, created_at, updated_at
+SELECT user_id, tour_completed_at, two_factor_enabled, created_at, updated_at
 FROM user_metadata
 WHERE user_id = $1
 `
 
-func (q *Queries) GetUserMetadata(ctx context.Context, userID uuid.UUID) (UserMetadatum, error) {
+type GetUserMetadataRow struct {
+	UserID           uuid.UUID          `json:"user_id"`
+	TourCompletedAt  *time.Time         `json:"tour_completed_at"`
+	TwoFactorEnabled bool               `json:"two_factor_enabled"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUserMetadata(ctx context.Context, userID uuid.UUID) (GetUserMetadataRow, error) {
 	row := q.db.QueryRow(ctx, getUserMetadata, userID)
-	var i UserMetadatum
+	var i GetUserMetadataRow
 	err := row.Scan(
 		&i.UserID,
 		&i.TourCompletedAt,
+		&i.TwoFactorEnabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -38,5 +49,22 @@ DO UPDATE SET tour_completed_at = now(), updated_at = now()
 
 func (q *Queries) MarkTourCompleted(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markTourCompleted, userID)
+	return err
+}
+
+const updateTwoFactor = `-- name: UpdateTwoFactor :exec
+INSERT INTO user_metadata (user_id, two_factor_enabled)
+VALUES ($1, $2)
+ON CONFLICT (user_id)
+DO UPDATE SET two_factor_enabled = $2, updated_at = now()
+`
+
+type UpdateTwoFactorParams struct {
+	UserID           uuid.UUID `json:"user_id"`
+	TwoFactorEnabled bool      `json:"two_factor_enabled"`
+}
+
+func (q *Queries) UpdateTwoFactor(ctx context.Context, arg UpdateTwoFactorParams) error {
+	_, err := q.db.Exec(ctx, updateTwoFactor, arg.UserID, arg.TwoFactorEnabled)
 	return err
 }
