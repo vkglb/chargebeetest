@@ -24,22 +24,35 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
+
+    // 1) Authenticate. Only credential/connection errors surface here.
     try {
       await login(email, password);
-      // Ask the server (authoritatively) whether this account has 2FA on.
-      const me = await api.get<Me>("/v1/me").catch(() => null);
-      if (me?.two_factor_enabled) {
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.status === 401 ? "Incorrect email or password." : err.message);
+      } else {
+        setError("Couldn't reach the server — please try again.");
+      }
+      setLoading(false);
+      return;
+    }
+
+    // 2) Signed in. Pick the 2FA step — but never let this block sign-in: if
+    //    the 2FA endpoints are unavailable, continue to the dashboard.
+    try {
+      const me = await api.get<Me>("/v1/me");
+      if (me.two_factor_enabled) {
         setOtp("");
         setStep("verify");
       } else {
-        // Offer enrollment: fetch a fresh secret + QR.
         const s = await api.post<TwoFactorSetup>("/v1/me/2fa/setup");
         setSetup(s);
         setOtp("");
         setStep("setup");
       }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Login failed");
+    } catch {
+      navigate("/sites");
     } finally {
       setLoading(false);
     }
