@@ -1,6 +1,7 @@
-.PHONY: help build run tidy db-up db-down migrate-up migrate-down sqlc tools
+.PHONY: help build run tidy db-up db-down bootstrap migrate-up migrate-down migrate-status migrate-reset db-dump db-restore sqlc tools
 
 DATABASE_URL ?= postgres://chargeebee:chargeebee@localhost:5432/chargeebee?sslmode=disable
+DUMP_FILE    ?= backup.dump
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -34,6 +35,13 @@ migrate-status: ## Show migration status
 
 migrate-reset: ## Roll back ALL migrations
 	go run ./cmd/migrate reset
+
+db-dump: ## Back up DATABASE_URL (schema + data) to $(DUMP_FILE)
+	pg_dump "$(DATABASE_URL)" --format=custom --no-owner --no-privileges --file="$(DUMP_FILE)"
+	@echo "Wrote $(DUMP_FILE)"
+
+db-restore: ## Restore $(DUMP_FILE) into DATABASE_URL (drops matching objects first)
+	pg_restore --clean --if-exists --no-owner --no-privileges --dbname="$(DATABASE_URL)" "$(DUMP_FILE)"
 
 sqlc: ## Generate type-safe DB code from SQL
 	sqlc generate

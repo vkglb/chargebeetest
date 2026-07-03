@@ -8,6 +8,10 @@ backend/bin/
 .env
 backend/.env
 
+# Database dumps (contain real data — never commit)
+*.dump
+*.sql.gz
+
 # Node / React
 frontend/node_modules/
 frontend/dist/
