@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { api, ApiError } from "../api/client";
 import { slugify } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
+import PasswordInput from "../components/PasswordInput";
 
 type Availability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
 
@@ -117,11 +118,11 @@ export default function Signup() {
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
 
         <label>Account password</label>
-        <input
-          type="password"
+        <PasswordInput
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={setPassword}
           placeholder="min 8 characters"
+          autoComplete="new-password"
           required
         />
 

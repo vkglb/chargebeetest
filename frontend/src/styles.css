@@ -168,6 +168,29 @@ input, select {
 }
 input:focus, select:focus { outline: none; border-color: var(--accent); }
 
+/* Password field with show/hide eye toggle */
+.password-field { position: relative; }
+.password-field input { padding-right: 42px; }
+.pw-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pw-toggle:hover { color: var(--text); background: var(--panel-2); }
+
 .btn {
   width: 100%;
   margin-top: 18px;

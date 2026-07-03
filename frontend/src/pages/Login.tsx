@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { api, ApiError, type Me, type TwoFactorSetup } from "../api/client";
 import OtpInput from "../components/OtpInput";
 import ShieldIcon from "../components/ShieldIcon";
+import PasswordInput from "../components/PasswordInput";
 
 type Step = "login" | "setup" | "verify";
 
@@ -46,14 +47,14 @@ export default function Login() {
         } catch (err) {
           if (err instanceof ApiError) throw err;
           if (i === backoffs.length - 1) throw new Error("network");
-          setError("Waking up the server (free tier) — this can take up to a minute…");
+          // keep retrying silently while a cold backend wakes up
         }
       }
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.status === 401 ? "Incorrect email or password." : err.message);
       } else {
-        setError("Couldn't reach the server. It may be asleep — wait a moment and try again.");
+        setError("Server unreachable — please try again later.");
       }
       setLoading(false);
       return;
@@ -238,11 +239,11 @@ export default function Login() {
         />
 
         <label htmlFor="password-input">Password</label>
-        <input
+        <PasswordInput
           id="password-input"
-          type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={setPassword}
+          autoComplete="current-password"
           required
         />
 
