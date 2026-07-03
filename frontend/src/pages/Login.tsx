@@ -126,36 +126,33 @@ export default function Login() {
             Authy, 1Password…).
           </p>
 
-          <ol className="tfa-steps">
-            <li>
-              <span className="tfa-step-n">1</span>
-              <div>
-                <div className="tfa-step-title">Scan this QR code</div>
-                <div className="tfa-qr">
-                  <QRCodeSVG value={setup.otpauth_url} size={168} marginSize={2} />
-                </div>
-              </div>
-            </li>
-            <li>
-              <span className="tfa-step-n">2</span>
-              <div>
-                <div className="tfa-step-title">Or enter this key manually</div>
-                <div className="tfa-key">
-                  <span className="mono">{prettySecret(setup.secret)}</span>
-                  <button type="button" className="btn-ghost btn-sm tfa-copy" onClick={copySecret}>
-                    {copied ? "Copied" : "Copy"}
-                  </button>
-                </div>
-              </div>
-            </li>
-            <li>
-              <span className="tfa-step-n">3</span>
-              <div style={{ flex: 1 }}>
-                <div className="tfa-step-title">Enter the code it shows</div>
-                {otpField(onEnable, "Verify & enable")}
-              </div>
-            </li>
-          </ol>
+          <div className="tfa-step">
+            <div className="tfa-step-head">
+              <span className="tfa-step-n">1</span>Scan this QR code
+            </div>
+            <div className="tfa-qr">
+              <QRCodeSVG value={setup.otpauth_url} size={176} marginSize={2} />
+            </div>
+          </div>
+
+          <div className="tfa-step">
+            <div className="tfa-step-head">
+              <span className="tfa-step-n">2</span>Or enter this key manually
+            </div>
+            <div className="tfa-key">
+              <span className="mono">{prettySecret(setup.secret)}</span>
+              <button type="button" className="btn-ghost btn-sm tfa-copy" onClick={copySecret}>
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+
+          <div className="tfa-step">
+            <div className="tfa-step-head">
+              <span className="tfa-step-n">3</span>Enter the code it shows
+            </div>
+            {otpField(onEnable, "Verify & enable")}
+          </div>
 
           <button type="button" className="link-btn tfa-skip" onClick={() => navigate("/sites")}>
             Skip for now
