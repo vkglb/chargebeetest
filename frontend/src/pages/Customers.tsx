@@ -6,6 +6,7 @@ import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
 import Pagination from "../components/Pagination";
 import Modal from "../components/Modal";
+import HelpTip from "../components/HelpTip";
 import RowMenu, { type MenuSection } from "../components/RowMenu";
 import { toCSV, downloadCSV, parseCSV } from "../lib/csv";
 import { COUNTRIES, countryName } from "../lib/countries";
@@ -13,6 +14,17 @@ import { COUNTRIES, countryName } from "../lib/countries";
 const PAGE_SIZE = 20;
 
 type ImportResult = { created: number; skipped: number; errors: string[] };
+
+// Sample import file: every header the importer understands, with rows showing
+// a required-only row and rows that fill the optional columns. `email` is
+// required; `name`, `country` (2-letter ISO code) and `gateway_customer_ref`
+// are optional.
+const IMPORT_TEMPLATE_CSV =
+  "email,name,country,gateway_customer_ref\n" +
+  "jane@acme.com,Jane Doe,US,cus_12345\n" +
+  "john@example.com,John Smith,GB,\n" +
+  "maria@empresa.es,Maria Garcia,ES,cus_67890\n" +
+  "sample@no-optionals.com,,,\n";
 
 export default function Customers() {
   const navigate = useNavigate();
@@ -335,6 +347,14 @@ export default function Customers() {
             >
               {importing ? "Importing…" : "Import Customers"}
             </button>
+            <HelpTip text="CSV needs an 'email' column (required). Optional columns: name, country (2-letter code like US), gateway_customer_ref. Tip: use Export → 'Download import-friendly file' as a template." />
+            <a
+              className="csv-template-link"
+              href={`data:text/csv;charset=utf-8,${encodeURIComponent(IMPORT_TEMPLATE_CSV)}`}
+              download="customers-template.csv"
+            >
+              Download sample CSV
+            </a>
             <div className="export-wrap" ref={exportRef}>
               <button
                 className="btn btn-sm btn-secondary"
