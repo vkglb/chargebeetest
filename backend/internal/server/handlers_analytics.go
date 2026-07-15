@@ -49,17 +49,24 @@ type metricDelta struct {
 	Previous int64 `json:"previous"`
 }
 
-// handleAnalytics returns summary metrics + 30-day time series for the dashboard
-// charts, all scoped to the current merchant + mode.
+// handleAnalytics returns summary metrics + a trailing time series for the
+// dashboard charts, all scoped to the current merchant + mode. The window and
+// currency are driven by the ?period= / ?currency= dashboard filters (see
+// parseAnalyticsFilters); with no params it behaves exactly as before — last 30
+// days, all currencies.
 func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	mid := merchantID(r)
 	md := mode(r)
+	f := parseAnalyticsFilters(r)
+	cur := f.currency
 
 	customers, _ := s.q.CountCustomers(ctx, sqlc.CountCustomersParams{MerchantID: mid, Mode: md})
-	revenue, _ := s.q.TotalRevenue(ctx, sqlc.TotalRevenueParams{MerchantID: mid, Mode: md})
-	mrr, _ := s.q.AnalyticsMRR(ctx, sqlc.AnalyticsMRRParams{MerchantID: mid, Mode: md})
+	revenue := s.revenueTotal(ctx, mid, md, cur)
+	mrr := s.analyticsMRR(ctx, mid, md, cur)
 
+	// Status breakdown / head-counts are currency-agnostic (a customer has no
+	// currency), so they ignore the currency filter by design.
 	statusRows, _ := s.q.SubscriptionStatusBreakdown(ctx, sqlc.SubscriptionStatusBreakdownParams{MerchantID: mid, Mode: md})
 	statusBreakdown := make([]map[string]any, 0, len(statusRows))
 	var totalSubs, activeSubs int64
@@ -71,74 +78,35 @@ func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	revRows, _ := s.q.RevenueByDay(ctx, sqlc.RevenueByDayParams{MerchantID: mid, Mode: md})
-	revenueSeries := make([]pointInt, 0, len(revRows))
-	for _, row := range revRows {
-		revenueSeries = append(revenueSeries, pointInt{Day: dateStr(row.Day), Value: row.AmountMinor})
-	}
-
-	subRows, _ := s.q.SubscriptionsByDay(ctx, sqlc.SubscriptionsByDayParams{MerchantID: mid, Mode: md})
-	subSeries := make([]pointInt, 0, len(subRows))
-	for _, row := range subRows {
-		subSeries = append(subSeries, pointInt{Day: dateStr(row.Day), Value: row.Count})
-	}
-
-	custRows, _ := s.q.CustomersByDay(ctx, sqlc.CustomersByDayParams{MerchantID: mid, Mode: md})
-	custSeries := make([]pointInt, 0, len(custRows))
-	for _, row := range custRows {
-		custSeries = append(custSeries, pointInt{Day: dateStr(row.Day), Value: row.Count})
-	}
-
-	mrrRows, _ := s.q.MRRAddedByDay(ctx, sqlc.MRRAddedByDayParams{MerchantID: mid, Mode: md})
-	mrrSeries := make([]pointInt, 0, len(mrrRows))
-	for _, row := range mrrRows {
-		mrrSeries = append(mrrSeries, pointInt{Day: dateStr(row.Day), Value: row.AmountMinor})
-	}
+	revenueSeries := s.revenueByDay(ctx, mid, md, cur, f.days)
+	subSeries := s.subscriptionsByDay(ctx, mid, md, f.days)
+	custSeries := s.customersByDay(ctx, mid, md, f.days)
+	mrrSeries := s.mrrAddedByDay(ctx, mid, md, cur, f.days)
 
 	// ── Period-over-period deltas ──────────────────────────────
-	// Flow metrics (revenue): last 30d vs the 30d before. Stock metrics
-	// (MRR, active subs, customers): now vs their value as of 30 days ago.
+	// Flow metrics (revenue): the selected window vs the equally-long span
+	// before it. Stock metrics (MRR, active subs, customers): now vs their
+	// value as of the start of the window.
 	now := time.Now().UTC()
-	curStart := now.AddDate(0, 0, -30)
-	prevStart := now.AddDate(0, 0, -60)
+	curStart := now.AddDate(0, 0, -f.days)
+	prevStart := now.AddDate(0, 0, -2*f.days)
 
 	// Intraday gross volume: today (up to now) and yesterday (full day), per hour.
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	yesterdayStart := todayStart.AddDate(0, 0, -1)
-	todayHourRows, _ := s.q.RevenueByHourBetween(ctx, sqlc.RevenueByHourBetweenParams{
-		MerchantID: mid, Mode: md, CreatedAt: pgTimestamptz(todayStart), CreatedAt_2: pgTimestamptz(now)})
-	yestHourRows, _ := s.q.RevenueByHourBetween(ctx, sqlc.RevenueByHourBetweenParams{
-		MerchantID: mid, Mode: md, CreatedAt: pgTimestamptz(yesterdayStart), CreatedAt_2: pgTimestamptz(todayStart)})
-	hourSeries := func(rows []sqlc.RevenueByHourBetweenRow) []map[string]any {
-		out := make([]map[string]any, 0, len(rows))
-		for _, r := range rows {
-			out = append(out, map[string]any{"hour": r.Hour, "value": r.AmountMinor})
-		}
-		return out
-	}
+	todayHourly := s.revenueByHour(ctx, mid, md, cur, todayStart, now)
+	yestHourly := s.revenueByHour(ctx, mid, md, cur, yesterdayStart, todayStart)
 
-	revCur, _ := s.q.RevenueBetween(ctx, sqlc.RevenueBetweenParams{
-		MerchantID: mid, Mode: md, CreatedAt: pgTimestamptz(curStart), CreatedAt_2: pgTimestamptz(now)})
-	revPrev, _ := s.q.RevenueBetween(ctx, sqlc.RevenueBetweenParams{
-		MerchantID: mid, Mode: md, CreatedAt: pgTimestamptz(prevStart), CreatedAt_2: pgTimestamptz(curStart)})
+	revCur := s.revenueBetween(ctx, mid, md, cur, curStart, now)
+	revPrev := s.revenueBetween(ctx, mid, md, cur, prevStart, curStart)
 
 	cutoff := pgTimestamptz(curStart)
-	mrrPrev, _ := s.q.MRRAsOf(ctx, sqlc.MRRAsOfParams{MerchantID: mid, Mode: md, CreatedAt: cutoff})
+	mrrPrev := s.mrrAsOf(ctx, mid, md, cur, curStart)
 	custPrev, _ := s.q.CountCustomersAsOf(ctx, sqlc.CountCustomersAsOfParams{MerchantID: mid, Mode: md, CreatedAt: cutoff})
 	activePrev, _ := s.q.CountActiveSubscriptionsAsOf(ctx, sqlc.CountActiveSubscriptionsAsOfParams{MerchantID: mid, Mode: md, CreatedAt: cutoff})
 
 	// ── Per-product MRR with growth ────────────────────────────
-	prodRows, _ := s.q.ProductMRRBreakdown(ctx, sqlc.ProductMRRBreakdownParams{MerchantID: mid, Mode: md, CreatedAt: cutoff})
-	products := make([]map[string]any, 0, len(prodRows))
-	for _, row := range prodRows {
-		products = append(products, map[string]any{
-			"product_id":           row.ProductID,
-			"name":                 row.ProductName,
-			"active_subscriptions": row.ActiveSubscriptions,
-			"mrr_minor":            row.MrrMinor,
-			"prev_mrr_minor":       row.PrevMrrMinor,
-		})
-	}
+	products := s.productMRRBreakdown(ctx, mid, md, cur, curStart)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"summary": map[string]any{
@@ -160,7 +128,12 @@ func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		"mrr_added_by_day":     mrrSeries,
 		"status_breakdown":     statusBreakdown,
 		"products":             products,
-		"today_hourly":         hourSeries(todayHourRows),
-		"yesterday_hourly":     hourSeries(yestHourRows),
+		"today_hourly":         todayHourly,
+		"yesterday_hourly":     yestHourly,
+		// Echo the resolved filters so the UI can label the deltas and confirm
+		// which window/currency the numbers reflect.
+		"period":        f.days,
+		"currency":      cur,
+		"delta_caption": f.caption,
 	})
 }

@@ -177,6 +177,23 @@ function DeltaBadge({ d, caption = "vs last 30d" }: { d?: MetricDelta; caption?:
   );
 }
 
+// Dashboard time-window options. The key is sent to the backend as ?period=;
+// "daily" (last 30 days) is the default and is sent as no param.
+type Period = "daily" | "3m" | "6m" | "12m";
+type CurrencyFilter = "all" | "USD" | "EUR";
+const PERIODS: { key: Period; label: string }[] = [
+  { key: "daily", label: "Daily" },
+  { key: "3m", label: "3 months" },
+  { key: "6m", label: "6 months" },
+  { key: "12m", label: "12 months" },
+];
+const PERIOD_LABEL: Record<Period, string> = {
+  daily: "last 30 days",
+  "3m": "last 3 months",
+  "6m": "last 6 months",
+  "12m": "last 12 months",
+};
+
 export default function Analytics() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [error, setError] = useState("");
@@ -185,10 +202,18 @@ export default function Analytics() {
   const [recent, setRecent] = useState<Transaction[]>([]);
   const [checkout, setCheckout] = useState<CheckoutAnalytics | null>(null);
   const [activeSlice, setActiveSlice] = useState<number | undefined>(undefined);
+  // Dashboard filters — the time window and the billing currency. Both re-fetch
+  // the analytics payload (see the effect below) and drive the money formatting.
+  const [period, setPeriod] = useState<Period>("daily");
+  const [currencyFilter, setCurrencyFilter] = useState<CurrencyFilter>("all");
 
   async function load(seedFeed = false) {
+    const params = new URLSearchParams();
+    if (period !== "daily") params.set("period", period);
+    if (currencyFilter !== "all") params.set("currency", currencyFilter);
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const [a, txns, subs, co] = await Promise.all([
-      api.get<AnalyticsData>("/v1/analytics"),
+      api.get<AnalyticsData>(`/v1/analytics${qs}`),
       api.get<Transaction[]>("/v1/transactions"),
       api.get<Subscription[]>("/v1/subscriptions"),
       api.get<CheckoutAnalytics>("/v1/analytics/checkout").catch(() => null),
@@ -208,9 +233,24 @@ export default function Analytics() {
   }
   useEffect(() => {
     load(true).catch((e) => setError(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Live: prepend incoming events to the feed and refresh the charts.
+  // Re-fetch when the period/currency filters change. The initial mount is
+  // handled by the seed-loading effect above, so skip the first run here.
+  const firstFilterRun = useRef(true);
+  useEffect(() => {
+    if (firstFilterRun.current) {
+      firstFilterRun.current = false;
+      return;
+    }
+    load().catch((e) => setError(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, currencyFilter]);
+
+  // Live: prepend incoming events to the feed and refresh the charts. This
+  // closure is re-created each render, so it always re-fetches with the
+  // currently selected period/currency.
   useRealtime((e) => {
     setLive(true);
     setFeed((prev) => [e, ...prev].slice(0, 12));
@@ -218,7 +258,12 @@ export default function Analytics() {
   });
 
   const fmtDay = (d: string) => d.slice(5); // MM-DD
-  const currency = "USD";
+  // "All" aggregates every currency but displays as USD (matching the backend,
+  // which sums minor units across currencies); otherwise format in the picked one.
+  const currency = currencyFilter === "all" ? "USD" : currencyFilter;
+  const periodLabel = PERIOD_LABEL[period];
+  const revLabel = period === "daily" ? "last 30d" : periodLabel;
+  const deltaCaption = data?.delta_caption ?? "vs last 30d";
 
   // Cumulative spark lines for the KPI cards.
   const mrrSpark = cumulative(data?.mrr_added_by_day);
@@ -298,9 +343,32 @@ export default function Analytics() {
           <h2>Analytics</h2>
           <p>Revenue, growth and subscription health</p>
         </div>
-        <span className={live ? "live-pill on" : "live-pill"}>
-          <span className="live-dot" /> {live ? "Live" : "Realtime"}
-        </span>
+        <div className="analytics-controls">
+          <div className="seg-toggle" role="group" aria-label="Time period">
+            {PERIODS.map((p) => (
+              <button
+                key={p.key}
+                className={period === p.key ? "active" : ""}
+                onClick={() => setPeriod(p.key)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <select
+            className="cur-filter"
+            value={currencyFilter}
+            onChange={(e) => setCurrencyFilter(e.target.value as CurrencyFilter)}
+            aria-label="Filter by currency"
+          >
+            <option value="all">All (USD)</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+          <span className={live ? "live-pill on" : "live-pill"}>
+            <span className="live-dot" /> {live ? "Live" : "Realtime"}
+          </span>
+        </div>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -312,17 +380,17 @@ export default function Analytics() {
             <Sparkline data={mrrSpark} color="#6c5ce7" />
           </div>
           <div className="value">{data ? formatMoney(data.summary.mrr_minor, currency) : "…"}</div>
-          <DeltaBadge d={data?.deltas?.mrr} />
+          <DeltaBadge d={data?.deltas?.mrr} caption={deltaCaption} />
         </div>
         <div className="stat">
           <div className="stat-top">
-            <div className="label">Revenue (last 30d)</div>
+            <div className="label">Revenue ({revLabel})</div>
             <Sparkline data={revSpark} color="#2ecc71" />
           </div>
           <div className="value">
             {data ? formatMoney(data.deltas?.revenue.current ?? data.summary.total_revenue_minor, currency) : "…"}
           </div>
-          <DeltaBadge d={data?.deltas?.revenue} />
+          <DeltaBadge d={data?.deltas?.revenue} caption={deltaCaption} />
         </div>
         <div className="stat">
           <div className="stat-top">
@@ -330,7 +398,7 @@ export default function Analytics() {
             <Sparkline data={subsSpark} color="#6c5ce7" />
           </div>
           <div className="value">{data ? data.summary.active_subscriptions : "…"}</div>
-          <DeltaBadge d={data?.deltas?.active_subscriptions} />
+          <DeltaBadge d={data?.deltas?.active_subscriptions} caption={deltaCaption} />
         </div>
         <div className="stat">
           <div className="stat-top">
@@ -338,7 +406,7 @@ export default function Analytics() {
             <Sparkline data={custSpark} color="#4aa3ff" />
           </div>
           <div className="value">{data ? data.summary.customers : "…"}</div>
-          <DeltaBadge d={data?.deltas?.customers} />
+          <DeltaBadge d={data?.deltas?.customers} caption={deltaCaption} />
         </div>
       </div>
 
@@ -412,7 +480,7 @@ export default function Analytics() {
       )}
 
       <div className="panel">
-        <h3>Revenue — last 30 days</h3>
+        <h3>Revenue — {periodLabel}</h3>
         <ResponsiveContainer width="100%" height={260}>
           <AreaChart data={data?.revenue_by_day ?? []} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <defs>
@@ -435,7 +503,7 @@ export default function Analytics() {
 
       <div className="chart-row">
         <div className="panel" style={{ flex: 2 }}>
-          <h3>New subscriptions — last 30 days</h3>
+          <h3>New subscriptions — {periodLabel}</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={data?.subscriptions_by_day ?? []} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#2a2f3a" vertical={false} />
@@ -521,7 +589,7 @@ export default function Analytics() {
                   <td>{p.active_subscriptions}</td>
                   <td>{formatMoney(p.mrr_minor, currency)}</td>
                   <td>
-                    <DeltaBadge d={{ current: p.mrr_minor, previous: p.prev_mrr_minor }} />
+                    <DeltaBadge d={{ current: p.mrr_minor, previous: p.prev_mrr_minor }} caption={deltaCaption} />
                   </td>
                 </tr>
               ))}

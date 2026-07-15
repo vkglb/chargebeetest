@@ -278,6 +278,11 @@ export interface Analytics {
   status_breakdown: { status: string; count: number }[];
   today_hourly?: { hour: number; value: number }[];
   yesterday_hourly?: { hour: number; value: number }[];
+  // Echoed back from the ?period=/?currency= filters so the UI can label the
+  // comparison window (e.g. "vs last 3 months") and confirm the active scope.
+  period?: number;
+  currency?: string;
+  delta_caption?: string;
 }
 
 // WebSocket URL for the live event stream, or null in guest/unauthenticated mode.
