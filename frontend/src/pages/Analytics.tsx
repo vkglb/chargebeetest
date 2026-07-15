@@ -24,6 +24,9 @@ import {
   type Transaction,
   type Subscription,
   type CheckoutAnalytics,
+  type AnalyticsMetrics,
+  type MetricCard,
+  type SubscriptionsByPlan,
 } from "../api/client";
 import { useRealtime, type LiveEvent } from "../lib/useRealtime";
 import { formatMoney, formatDateTimeShort } from "../lib/format";
@@ -148,9 +151,18 @@ const STATUS_COLORS: Record<string, string> = {
   paused: "#9aa3b2",
 };
 
-// Percentage change vs the previous period. Up is good (green) for every metric
-// on this dashboard; a brand-new value (no prior) is shown as "new".
-function DeltaBadge({ d, caption = "vs last 30d" }: { d?: MetricDelta; caption?: string }) {
+// Percentage change vs the previous period. Up is good (green) for most metrics;
+// for cost/loss metrics (churn, cancellations, refunds) pass invert so a rise
+// shows red. A brand-new value (no prior) is shown as "new".
+function DeltaBadge({
+  d,
+  caption = "vs last 30d",
+  invert = false,
+}: {
+  d?: MetricDelta;
+  caption?: string;
+  invert?: boolean;
+}) {
   if (!d) return null;
   const { current, previous } = d;
   let dir: "up" | "down" | "flat" = "flat";
@@ -168,11 +180,136 @@ function DeltaBadge({ d, caption = "vs last 30d" }: { d?: MetricDelta; caption?:
     label = `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
   }
   const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "—";
+  // The arrow reflects the real direction; the colour (tone) can be inverted so
+  // that "more churn" reads as bad even though the number went up.
+  const tone = invert ? (dir === "up" ? "down" : dir === "down" ? "up" : "flat") : dir;
   return (
-    <div className={`delta ${dir}`}>
+    <div className={`delta ${tone}`}>
       <span>{arrow}</span>
       <span>{label}</span>
       <span className="delta-cap">{caption}</span>
+    </div>
+  );
+}
+
+// Which tiles improve when they go DOWN — used to flip the delta colour and pick
+// a warmer sparkline hue.
+const NEGATIVE_METRICS = new Set([
+  "refunds",
+  "voluntary_cancellation_mrr",
+  "involuntary_cancellation_mrr",
+  "churn_rate",
+  "credit_notes",
+]);
+
+// Palette for the per-plan subscription breakdown (cycled if there are more
+// plans than colours).
+const PLAN_COLORS = [
+  "#6c5ce7",
+  "#4aa3ff",
+  "#2ecc71",
+  "#f1c40f",
+  "#ff8a7a",
+  "#e056fd",
+  "#00cec9",
+  "#fab1a0",
+  "#74b9ff",
+  "#a29bfe",
+];
+
+function formatMetric(c: MetricCard, currency: string): string {
+  if (c.format === "money") return formatMoney(c.value, currency);
+  if (c.format === "percent") return `${(c.value / 100).toFixed(2)}%`;
+  return c.value.toLocaleString();
+}
+
+// One Chargebee-style tile: headline value, period delta and a filled sparkline.
+function MetricCardView({
+  card,
+  currency,
+  caption,
+}: {
+  card: MetricCard;
+  currency: string;
+  caption: string;
+}) {
+  const spark = card.series ?? [];
+  const hasData = spark.some((p) => p.value !== 0);
+  const negative = NEGATIVE_METRICS.has(card.key);
+  const color = negative ? "#ff8a7a" : "#4aa3ff";
+  return (
+    <div className="metric-card">
+      <div className="metric-label">{card.label}</div>
+      <div className="metric-value">{formatMetric(card, currency)}</div>
+      <DeltaBadge d={{ current: card.value, previous: card.prev }} caption={caption} invert={negative} />
+      <div className="metric-spark">
+        {hasData ? (
+          <ResponsiveContainer width="100%" height={56}>
+            <AreaChart data={spark} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`mc-${card.key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={color}
+                strokeWidth={1.75}
+                fill={`url(#mc-${card.key})`}
+              />
+              <Tooltip
+                contentStyle={{ background: "#171a21", border: "1px solid #2a2f3a", borderRadius: 8, fontSize: 12 }}
+                labelFormatter={(day) => String(day).slice(5)}
+                formatter={(v) => [
+                  card.format === "money" ? formatMoney(Number(v), currency) : Number(v).toLocaleString(),
+                  card.label,
+                ]}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="metric-empty">No data in this period</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// "Total Subscriptions" panel: every plan with its share of the total, as a
+// ranked list with colour-coded share bars.
+function PlanBreakdown({ data }: { data: SubscriptionsByPlan }) {
+  const total = data.total || 0;
+  return (
+    <div className="panel plan-panel">
+      <div className="panel-head">
+        <h3 style={{ margin: 0 }}>Total Subscriptions</h3>
+        <span className="plan-total">{total.toLocaleString()}</span>
+      </div>
+      {data.plans.length === 0 ? (
+        <div className="empty">No subscriptions yet.</div>
+      ) : (
+        <div className="plan-list">
+          {data.plans.map((p, i) => {
+            const pct = total > 0 ? Math.round((p.count / total) * 100) : 0;
+            const color = PLAN_COLORS[i % PLAN_COLORS.length];
+            return (
+              <div key={`${p.plan}-${i}`} className="plan-row">
+                <span className="plan-dot" style={{ background: color }} />
+                <span className="plan-name" title={p.plan}>
+                  {p.plan}
+                </span>
+                <div className="plan-bar">
+                  <div className="plan-bar-fill" style={{ width: `${pct}%`, background: color }} />
+                </div>
+                <span className="plan-count">{p.count.toLocaleString()}</span>
+                <span className="plan-pct">{pct}%</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -201,6 +338,7 @@ export default function Analytics() {
   const [live, setLive] = useState(false);
   const [recent, setRecent] = useState<Transaction[]>([]);
   const [checkout, setCheckout] = useState<CheckoutAnalytics | null>(null);
+  const [metrics, setMetrics] = useState<AnalyticsMetrics | null>(null);
   const [activeSlice, setActiveSlice] = useState<number | undefined>(undefined);
   // Dashboard filters — the time window and the billing currency. Both re-fetch
   // the analytics payload (see the effect below) and drive the money formatting.
@@ -212,14 +350,16 @@ export default function Analytics() {
     if (period !== "daily") params.set("period", period);
     if (currencyFilter !== "all") params.set("currency", currencyFilter);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const [a, txns, subs, co] = await Promise.all([
+    const [a, txns, subs, co, m] = await Promise.all([
       api.get<AnalyticsData>(`/v1/analytics${qs}`),
       api.get<Transaction[]>("/v1/transactions"),
       api.get<Subscription[]>("/v1/subscriptions"),
       api.get<CheckoutAnalytics>("/v1/analytics/checkout").catch(() => null),
+      api.get<AnalyticsMetrics>(`/v1/analytics/metrics${qs}`).catch(() => null),
     ]);
     setData(a);
     setCheckout(co);
+    setMetrics(m);
     const allTxns = txns ?? [];
     setRecent(allTxns.slice(0, 8));
     // Seed the live feed with a mix of recent real events (payments + sub
@@ -500,6 +640,17 @@ export default function Analytics() {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      {metrics && (
+        <div className="metric-section">
+          <div className="metric-grid">
+            {metrics.cards.map((c) => (
+              <MetricCardView key={c.key} card={c} currency={currency} caption={deltaCaption} />
+            ))}
+          </div>
+          <PlanBreakdown data={metrics.subscriptions_by_plan} />
+        </div>
+      )}
 
       <div className="chart-row">
         <div className="panel" style={{ flex: 2 }}>

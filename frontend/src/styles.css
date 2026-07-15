@@ -569,6 +569,55 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
   font-weight: 600;
 }
 
+/* Chargebee-style metric tiles + per-plan subscription breakdown. */
+.metric-section { margin-bottom: 22px; }
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.metric-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.metric-label { color: var(--muted); font-size: 13px; font-weight: 600; }
+.metric-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.metric-spark { margin-top: 8px; min-height: 56px; }
+.metric-empty {
+  color: var(--muted);
+  font-size: 12px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.plan-total { font-size: 20px; font-weight: 700; color: var(--text); }
+.plan-list { display: flex; flex-direction: column; gap: 11px; margin-top: 10px; }
+.plan-row {
+  display: grid;
+  grid-template-columns: 10px minmax(110px, 1.4fr) 2fr auto 40px;
+  align-items: center;
+  gap: 10px;
+}
+.plan-dot { width: 10px; height: 10px; border-radius: 3px; }
+.plan-name {
+  color: var(--text);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-bar { height: 6px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+.plan-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+.plan-count { font-weight: 700; color: var(--text); font-size: 13px; text-align: right; }
+.plan-pct { color: var(--muted); font-size: 12px; text-align: right; }
+
 /* ── Cards / panels ───────────────────────────────────────── */
 .panel {
   background: var(--panel);

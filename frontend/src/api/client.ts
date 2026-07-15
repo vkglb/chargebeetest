@@ -285,6 +285,26 @@ export interface Analytics {
   delta_caption?: string;
 }
 
+// Extended Chargebee-style dashboard tiles + the per-plan subscription
+// breakdown, served by GET /v1/analytics/metrics.
+export interface MetricCard {
+  key: string;
+  label: string;
+  format: "money" | "int" | "percent"; // money=minor units, percent=hundredths
+  value: number;
+  prev: number;
+  series: SeriesPoint[];
+}
+export interface SubscriptionsByPlan {
+  total: number;
+  plans: { plan: string; count: number }[];
+}
+export interface AnalyticsMetrics {
+  cards: MetricCard[];
+  subscriptions_by_plan: SubscriptionsByPlan;
+  currency?: string;
+}
+
 // WebSocket URL for the live event stream, or null in guest/unauthenticated mode.
 export function realtimeUrl(): string | null {
   const token = getToken();
