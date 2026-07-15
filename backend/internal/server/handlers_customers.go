@@ -88,6 +88,68 @@ func (s *Server) handleUpdateCustomer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// handleRequestPaymentMethodUpdate emits a
+// customer.payment_method_update_requested event — delivered to any subscribed
+// webhook endpoints and to the live dashboard feed. This is the hook a merchant
+// integration listens on to email the customer a secure "update your card" link.
+func (s *Server) handleRequestPaymentMethodUpdate(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid customer id")
+		return
+	}
+	var email string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT email FROM customers WHERE id = $1 AND merchant_id = $2 AND mode = $3`,
+		id, merchantID(r), mode(r)).Scan(&email); err != nil {
+		writeError(w, http.StatusNotFound, "customer not found")
+		return
+	}
+	s.emitter.Emit(merchantID(r), mode(r), "customer.payment_method_update_requested", map[string]any{
+		"customer_id": id,
+		"email":       email,
+	})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "email": email})
+}
+
+type autoCollectionRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// handleSetAutoCollection flips a customer's auto-collection preference, stored
+// in the customer's metadata JSONB (no schema change). "on" = invoices are
+// charged automatically; "off" = collected manually.
+func (s *Server) handleSetAutoCollection(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid customer id")
+		return
+	}
+	var req autoCollectionRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	val := "off"
+	if req.Enabled {
+		val = "on"
+	}
+	ct, err := s.pool.Exec(r.Context(), `
+		UPDATE customers
+		SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{auto_collection}', to_jsonb($1::text), true)
+		WHERE id = $2 AND merchant_id = $3 AND mode = $4`,
+		val, id, merchantID(r), mode(r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not update auto-collection")
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		writeError(w, http.StatusNotFound, "customer not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "auto_collection": val})
+}
+
 // handleDeleteCustomer removes a customer. Subscriptions and payment methods
 // cascade away; invoices/checkout sessions do not, so a customer with billing
 // history is protected by the foreign key and reported as a 409 rather than a

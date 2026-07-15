@@ -26,6 +26,17 @@ const IMPORT_TEMPLATE_CSV =
   "maria@empresa.es,Maria Garcia,ES,cus_67890\n" +
   "sample@no-optionals.com,,,\n";
 
+// Read a customer's auto-collection preference from its (base64 JSONB) metadata.
+// Chargebee defaults auto-collection ON, so anything but an explicit "off" is on.
+function autoCollectionOn(c: Customer): boolean {
+  try {
+    const meta = c.metadata ? JSON.parse(atob(c.metadata)) : {};
+    return meta.auto_collection !== "off";
+  } catch {
+    return true;
+  }
+}
+
 export default function Customers() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -52,6 +63,13 @@ export default function Customers() {
   const [editCountry, setEditCountry] = useState("US");
   const [editRef, setEditRef] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  // Transient success banner (auto-clears) for menu actions.
+  function flash(msg: string) {
+    setNotice(msg);
+    window.setTimeout(() => setNotice(""), 4000);
+  }
 
   const filtered = useMemo(() => {
     let result = customers;
@@ -235,6 +253,27 @@ export default function Customers() {
     }
   }
 
+  async function toggleAutoCollection(c: Customer, enabled: boolean) {
+    setError("");
+    try {
+      await api.post(`/v1/customers/${c.id}/auto-collection`, { enabled });
+      await load();
+      flash(`Auto collection turned ${enabled ? "on" : "off"} for ${c.email}.`);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function requestPaymentMethod(c: Customer) {
+    setError("");
+    try {
+      await api.post(`/v1/customers/${c.id}/request-payment-method`);
+      flash(`Payment method update requested for ${c.email} — event emitted to webhooks & the live feed.`);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   async function removeCustomer(c: Customer) {
     if (!window.confirm(`Delete ${c.name || c.email}? This can't be undone.`)) return;
     setError("");
@@ -249,6 +288,7 @@ export default function Customers() {
   // The per-row menu, mirroring Chargebee's References + Quick Actions groups.
   // Actions with no backing data model in this build are shown disabled.
   function rowSections(c: Customer): MenuSection[] {
+    const acOn = autoCollectionOn(c);
     return [
       {
         title: "References",
@@ -264,10 +304,13 @@ export default function Customers() {
         items: [
           { label: "Edit Customer", onClick: () => openEdit(c) },
           { label: "Create New Subscription", onClick: () => navigate(`/subscriptions?customer=${c.id}`) },
-          { label: "Request Payment Method Update", disabled: true, title: "Needs a connected payment gateway" },
-          { label: "Add Credit Card", disabled: true, title: "Needs a connected payment gateway" },
+          { label: "Request Payment Method Update", onClick: () => requestPaymentMethod(c) },
+          { label: "Add Credit Card", disabled: true, title: "Needs a connected payment gateway + card capture" },
           { label: "Update Billing Info", onClick: () => openEdit(c) },
-          { label: "Change auto collection", disabled: true, title: "Auto-collection isn't configurable in this build" },
+          {
+            label: acOn ? "Change auto collection → turn Off" : "Change auto collection → turn On",
+            onClick: () => toggleAutoCollection(c, !acOn),
+          },
           { label: "Delete Customer", danger: true, onClick: () => removeCustomer(c) },
         ],
       },
@@ -284,6 +327,7 @@ export default function Customers() {
       </div>
 
       {error && <div className="error">{error}</div>}
+      {notice && <div className="notice">{notice}</div>}
 
       <div className="panel">
         <h3>New customer</h3>

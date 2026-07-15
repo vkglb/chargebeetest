@@ -619,6 +619,16 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .plan-pct { color: var(--muted); font-size: 12px; text-align: right; }
 
 /* ── Table toolbar: import / export / row actions ─────────────── */
+.notice {
+  background: rgba(46, 204, 113, 0.12);
+  border: 1px solid rgba(46, 204, 113, 0.4);
+  color: var(--green);
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
 .table-actions { display: flex; align-items: center; gap: 8px; }
 .csv-template-link {
   font-size: 12px;

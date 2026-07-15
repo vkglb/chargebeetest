@@ -141,6 +141,7 @@ export interface Customer {
   name: string | null;
   gateway_customer_ref: string | null;
   country?: string; // ISO 3166-1 alpha-2, e.g. "US"
+  metadata?: string; // base64-encoded JSONB blob (e.g. {"auto_collection":"on"})
   created_at: string;
 }
 

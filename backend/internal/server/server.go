@@ -147,6 +147,8 @@ func (s *Server) routes() {
 			r.Get("/customers", s.handleListCustomers)
 			r.Patch("/customers/{id}", s.handleUpdateCustomer)
 			r.Delete("/customers/{id}", s.handleDeleteCustomer)
+			r.Post("/customers/{id}/request-payment-method", s.handleRequestPaymentMethodUpdate)
+			r.Post("/customers/{id}/auto-collection", s.handleSetAutoCollection)
 
 			r.Post("/subscriptions", s.handleCreateSubscription)
 			r.Get("/subscriptions", s.handleListSubscriptions)
