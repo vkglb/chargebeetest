@@ -748,6 +748,49 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 }
 .import-errors li { margin: 2px 0; }
 
+/* Dedicated customer-import page. */
+.import-step {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 48px 20px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dropzone:hover { border-color: var(--accent); }
+.dropzone.over { border-color: var(--accent); background: rgba(108, 92, 231, 0.08); }
+.dropzone.busy { cursor: progress; }
+.dropzone-label { font-size: 15px; font-weight: 500; }
+.dropzone-busy { font-size: 15px; font-weight: 600; color: var(--text); }
+.import-note {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.import-note-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.import-note-title {
+  font-weight: 700;
+  color: var(--text);
+  margin: 8px 0 4px;
+}
+.import-note strong { color: var(--text); }
+.import-result h3 { margin-top: 0; }
+
 /* ── Cards / panels ───────────────────────────────────────── */
 .panel {
   background: var(--panel);

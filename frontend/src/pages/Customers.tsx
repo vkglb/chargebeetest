@@ -6,25 +6,11 @@ import { useDebounce } from "../lib/useDebounce";
 import SearchInput from "../components/SearchInput";
 import Pagination from "../components/Pagination";
 import Modal from "../components/Modal";
-import HelpTip from "../components/HelpTip";
 import RowMenu, { type MenuSection } from "../components/RowMenu";
-import { toCSV, downloadCSV, parseCSV } from "../lib/csv";
+import { toCSV, downloadCSV } from "../lib/csv";
 import { COUNTRIES, countryName } from "../lib/countries";
 
 const PAGE_SIZE = 20;
-
-type ImportResult = { created: number; skipped: number; errors: string[] };
-
-// Sample import file: every header the importer understands, with rows showing
-// a required-only row and rows that fill the optional columns. `email` is
-// required; `name`, `country` (2-letter ISO code) and `gateway_customer_ref`
-// are optional.
-const IMPORT_TEMPLATE_CSV =
-  "email,name,country,gateway_customer_ref\n" +
-  "jane@acme.com,Jane Doe,US,cus_12345\n" +
-  "john@example.com,John Smith,GB,\n" +
-  "maria@empresa.es,Maria Garcia,ES,cus_67890\n" +
-  "sample@no-optionals.com,,,\n";
 
 // Read a customer's auto-collection preference from its (base64 JSONB) metadata.
 // Chargebee defaults auto-collection ON, so anything but an explicit "off" is on.
@@ -47,17 +33,15 @@ export default function Customers() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [countryFilter, setCountryFilter] = useState("all");
+  const [autoFilter, setAutoFilter] = useState("all"); // all | on | off
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const q = useDebounce(query).trim().toLowerCase();
 
-  // Export dropdown, CSV import, and the edit modal.
-  const fileRef = useRef<HTMLInputElement>(null);
+  // Export dropdown + the edit modal.
   const exportRef = useRef<HTMLDivElement>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [editName, setEditName] = useState("");
   const [editCountry, setEditCountry] = useState("US");
@@ -86,6 +70,10 @@ export default function Customers() {
       result = result.filter((c) => c.country?.toLowerCase() === countryFilter.toLowerCase());
     }
 
+    if (autoFilter !== "all") {
+      result = result.filter((c) => autoCollectionOn(c) === (autoFilter === "on"));
+    }
+
     if (fromDate) {
       const fromTime = new Date(fromDate).getTime();
       result = result.filter((c) => new Date(c.created_at).getTime() >= fromTime);
@@ -97,9 +85,9 @@ export default function Customers() {
     }
 
     return result;
-  }, [customers, q, countryFilter, fromDate, toDate]);
+  }, [customers, q, countryFilter, autoFilter, fromDate, toDate]);
 
-  useEffect(() => setPage(1), [q, countryFilter, fromDate, toDate]);
+  useEffect(() => setPage(1), [q, countryFilter, autoFilter, fromDate, toDate]);
 
   // Close the export dropdown on any outside click.
   useEffect(() => {
@@ -111,11 +99,13 @@ export default function Customers() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [exportOpen]);
 
-  const hasActiveFilters = query || countryFilter !== "all" || fromDate || toDate;
+  const hasActiveFilters =
+    query || countryFilter !== "all" || autoFilter !== "all" || fromDate || toDate;
 
   const clearFilters = () => {
     setQuery("");
     setCountryFilter("all");
+    setAutoFilter("all");
     setFromDate("");
     setToDate("");
   };
@@ -167,62 +157,6 @@ export default function Customers() {
     const header = ["email", "name", "country", "gateway_customer_ref"];
     const rows = filtered.map((c) => [c.email, c.name ?? "", c.country ?? "", c.gateway_customer_ref ?? ""]);
     downloadCSV("customers-import.csv", toCSV(header, rows));
-  }
-
-  // ── Import ────────────────────────────────────────────────────────────────
-  // Parse the CSV client-side and create each row through the existing endpoint,
-  // reporting how many landed vs were skipped (duplicates, bad rows).
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // let the same file be re-selected later
-    if (!file) return;
-    setImporting(true);
-    try {
-      const rows = parseCSV(await file.text());
-      if (rows.length < 2) {
-        setImportResult({ created: 0, skipped: 0, errors: ["No data rows found in the file."] });
-        return;
-      }
-      const header = rows[0].map((h) => h.trim().toLowerCase());
-      const iEmail = header.indexOf("email");
-      if (iEmail === -1) {
-        setImportResult({ created: 0, skipped: 0, errors: ['The file needs an "email" column.'] });
-        return;
-      }
-      const iName = header.indexOf("name");
-      const iCountry = header.indexOf("country");
-      const iRef = header.findIndex((h) => h === "gateway_customer_ref" || h === "reference");
-
-      let created = 0;
-      let skipped = 0;
-      const errors: string[] = [];
-      for (let r = 1; r < rows.length; r++) {
-        const cols = rows[r];
-        const rowEmail = (cols[iEmail] ?? "").trim();
-        if (!rowEmail) {
-          skipped++;
-          continue;
-        }
-        try {
-          await api.post("/v1/customers", {
-            email: rowEmail,
-            name: iName >= 0 ? (cols[iName] ?? "").trim() : "",
-            country: iCountry >= 0 ? (cols[iCountry] ?? "").trim() || "US" : "US",
-            gateway_customer_ref: iRef >= 0 ? (cols[iRef] ?? "").trim() : "",
-          });
-          created++;
-        } catch (err) {
-          skipped++;
-          if (errors.length < 6) errors.push(`${rowEmail}: ${(err as Error).message}`);
-        }
-      }
-      setImportResult({ created, skipped, errors });
-      await load();
-    } catch (err) {
-      setImportResult({ created: 0, skipped: 0, errors: [(err as Error).message] });
-    } finally {
-      setImporting(false);
-    }
   }
 
   // ── Row actions ─────────────────────────────────────────────────────────────
@@ -377,28 +311,9 @@ export default function Customers() {
             <span className="count">{filtered.length}</span>
           </h3>
           <div className="table-actions">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,text/csv"
-              hidden
-              onChange={handleImportFile}
-            />
-            <button
-              className="btn btn-sm btn-secondary"
-              disabled={importing}
-              onClick={() => fileRef.current?.click()}
-            >
-              {importing ? "Importing…" : "Import Customers"}
+            <button className="btn btn-sm btn-secondary" onClick={() => navigate("/customers/import")}>
+              Import Customers
             </button>
-            <HelpTip text="CSV needs an 'email' column (required). Optional columns: name, country (2-letter code like US), gateway_customer_ref. Tip: use Export → 'Download import-friendly file' as a template." />
-            <a
-              className="csv-template-link"
-              href={`data:text/csv;charset=utf-8,${encodeURIComponent(IMPORT_TEMPLATE_CSV)}`}
-              download="customers-template.csv"
-            >
-              Download sample CSV
-            </a>
             <div className="export-wrap" ref={exportRef}>
               <button
                 className="btn btn-sm btn-secondary"
@@ -450,6 +365,19 @@ export default function Customers() {
                     {c.name}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div className="filters-group">
+              <label htmlFor="auto-filter">Auto Collection</label>
+              <select
+                id="auto-filter"
+                value={autoFilter}
+                onChange={(e) => setAutoFilter(e.target.value)}
+              >
+                <option value="all">All</option>
+                <option value="on">On</option>
+                <option value="off">Off</option>
               </select>
             </div>
 
@@ -552,29 +480,6 @@ export default function Customers() {
               </button>
             </div>
           </form>
-        </Modal>
-      )}
-
-      {importResult && (
-        <Modal title="Import complete" onClose={() => setImportResult(null)}>
-          <div className="modal-body">
-            <p className="import-summary">
-              <strong>{importResult.created}</strong> created ·{" "}
-              <strong>{importResult.skipped}</strong> skipped
-            </p>
-            {importResult.errors.length > 0 && (
-              <ul className="import-errors">
-                {importResult.errors.map((er, i) => (
-                  <li key={i}>{er}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="modal-actions">
-            <button className="btn" onClick={() => setImportResult(null)}>
-              Done
-            </button>
-          </div>
         </Modal>
       )}
     </div>
