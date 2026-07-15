@@ -618,6 +618,119 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .plan-count { font-weight: 700; color: var(--text); font-size: 13px; text-align: right; }
 .plan-pct { color: var(--muted); font-size: 12px; text-align: right; }
 
+/* ── Table toolbar: import / export / row actions ─────────────── */
+.table-actions { display: flex; align-items: center; gap: 8px; }
+.btn-secondary {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover:not(:disabled) { border-color: var(--accent); }
+
+.export-wrap { position: relative; }
+.export-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 260px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.export-menu button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 9px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text);
+}
+.export-menu button:hover { background: var(--panel-2); }
+.export-menu button strong { font-size: 13px; font-weight: 600; }
+.export-menu button span { font-size: 12px; color: var(--muted); }
+
+/* Kebab (⋮) row-action button + floating menu. */
+.col-actions { width: 44px; text-align: right; }
+.kebab-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.kebab-btn:hover { background: var(--panel-2); color: var(--text); }
+.row-menu {
+  position: fixed;
+  z-index: 60;
+  width: 240px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+}
+.row-menu-section + .row-menu-section {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.row-menu-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 4px 10px;
+}
+.row-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+}
+.row-menu-item:hover:not(:disabled) { background: var(--panel-2); }
+.row-menu-item:disabled { color: var(--muted); opacity: 0.55; cursor: not-allowed; }
+.row-menu-item.danger { color: #ff6b6b; }
+.row-menu-item.danger:hover:not(:disabled) { background: rgba(255, 107, 107, 0.12); }
+
+/* Edit / import modal form bits. */
+.modal-form { display: flex; flex-direction: column; gap: 6px; }
+.modal-form label { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.modal-body { font-size: 14px; color: var(--text); }
+.import-summary { margin: 0 0 8px; }
+.import-errors {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.import-errors li { margin: 2px 0; }
+
 /* ── Cards / panels ───────────────────────────────────────── */
 .panel {
   background: var(--panel);

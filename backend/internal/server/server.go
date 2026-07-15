@@ -145,6 +145,8 @@ func (s *Server) routes() {
 
 			r.Post("/customers", s.handleCreateCustomer)
 			r.Get("/customers", s.handleListCustomers)
+			r.Patch("/customers/{id}", s.handleUpdateCustomer)
+			r.Delete("/customers/{id}", s.handleDeleteCustomer)
 
 			r.Post("/subscriptions", s.handleCreateSubscription)
 			r.Get("/subscriptions", s.handleListSubscriptions)

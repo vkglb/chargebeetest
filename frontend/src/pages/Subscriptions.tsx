@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ResponsiveContainer,
   BarChart,
@@ -29,6 +29,10 @@ import { CANCEL_REASONS } from "../lib/subscriptions";
 
 export default function Subscriptions() {
   const navigate = useNavigate();
+  // A ?customer=<id> param (e.g. from the Customers "Create New Subscription"
+  // action) preselects that customer in the new-subscription form.
+  const [searchParams] = useSearchParams();
+  const presetCustomer = searchParams.get("customer") ?? "";
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
@@ -91,7 +95,10 @@ export default function Subscriptions() {
     setCustomers(c);
     setPrices(pr);
     setProducts(p);
-    if (!customerId && c.length) setCustomerId(c[0].id);
+    if (!customerId && c.length) {
+      const preset = presetCustomer && c.some((x) => x.id === presetCustomer) ? presetCustomer : c[0].id;
+      setCustomerId(preset);
+    }
     if (!priceId && pr.length) setPriceId(pr[0].id);
   }
 

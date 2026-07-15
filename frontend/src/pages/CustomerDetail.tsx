@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useLocation } from "react-router-dom";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -36,6 +36,7 @@ const STATUS_LABEL: Record<string, { label: string; reason: string; cls: string 
 
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
+  const { hash } = useLocation();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
@@ -72,6 +73,14 @@ export default function CustomerDetail() {
       })
       .catch((e) => setError((e as Error).message));
   }, [id]);
+
+  // When arriving via a "#subscriptions" / "#invoices" / "#payments" deep link
+  // (from the Customers row menu), scroll that section into view once loaded.
+  useEffect(() => {
+    if (!customer || !hash) return;
+    const el = document.getElementById(hash.slice(1));
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [customer, hash]);
 
   async function resend(deliveryId: string) {
     setResending(deliveryId);
@@ -175,7 +184,7 @@ export default function CustomerDetail() {
           </div>
 
           {/* Subscriptions */}
-          <div className="panel">
+          <div className="panel" id="subscriptions">
             <h3>Subscriptions ({subs.length})</h3>
             {subs.length === 0 ? (
               <div className="empty">No subscriptions.</div>
@@ -214,7 +223,7 @@ export default function CustomerDetail() {
           </div>
 
           {/* Invoices */}
-          <div className="panel">
+          <div className="panel" id="invoices">
             <h3>Invoices ({invoices.length})</h3>
             {invoices.length === 0 ? (
               <div className="empty">No invoices yet.</div>
@@ -245,7 +254,7 @@ export default function CustomerDetail() {
           </div>
 
           {/* Payments */}
-          <div className="panel">
+          <div className="panel" id="payments">
             <h3>Payments ({custTxns.length})</h3>
             {custTxns.length === 0 ? (
               <div className="empty">No payments yet.</div>
